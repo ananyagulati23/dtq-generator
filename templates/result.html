@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DTQ Content Generator — Result</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --text: #0a0a0a;
+      --muted: #6b7280;
+      --accent: #0e1b3d;
+      --error: #b91c1c;
+      --warning: #92400e;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: -apple-system, 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      padding: 56px 24px 80px;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    .wordmark {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--accent);
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    h1 {
+      margin: 0 0 24px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .panel.image-panel { padding: 16px; }
+    .card-image {
+      width: 100%;
+      display: block;
+      border-radius: 8px;
+    }
+    .caption {
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 12px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .actions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+    a.btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 11px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    a.btn:hover { opacity: 0.9; }
+    a.btn.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    a.btn.secondary:hover { border-color: var(--accent); }
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: var(--error);
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .warning {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: var(--warning);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="wordmark">DTQ</div>
+
+    {% if error %}
+      <h1>Something went wrong</h1>
+      <div class="panel">
+        <div class="error">{{ error }}</div>
+        <div class="actions">
+          <a class="btn" href="/">Try again</a>
+        </div>
+      </div>
+    {% else %}
+      <h1>Generated post</h1>
+
+      {% if warning %}
+        <div class="warning">{{ warning }}</div>
+      {% endif %}
+
+      <div class="panel image-panel">
+        <img class="card-image" src="{{ image_url }}" alt="Generated DTQ card" />
+      </div>
+
+      <div class="panel">
+        <div class="meta">LinkedIn caption</div>
+        <div class="caption">{{ caption }}</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="/download?url={{ image_url|urlencode }}&filename=dtq-card.png">Download image</a>
+        <a class="btn secondary" href="/">Generate another</a>
+        <a class="btn secondary" href="{{ image_url }}" target="_blank" rel="noopener">Open image</a>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>
