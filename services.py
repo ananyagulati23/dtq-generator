@@ -79,6 +79,7 @@ async def save_to_airtable(
     content: str,
     image_url: str,
     status: str = "Draft",
+    assignee: str | None = None,
 ) -> dict:
     token = os.getenv("AIRTABLE_TOKEN")
     base_id = os.getenv("AIRTABLE_BASE_ID")
@@ -87,14 +88,15 @@ async def save_to_airtable(
         raise ServiceError("AIRTABLE_TOKEN, AIRTABLE_BASE_ID, or AIRTABLE_TABLE_ID not set")
 
     url = AIRTABLE_URL.format(base=base_id, table=table_id)
-    payload = {
-        "fields": {
-            "Post Title": title,
-            "Post Content": content,
-            "Image URL": image_url,
-            "Status": status,
-        }
+    fields = {
+        "Post Title": title,
+        "Post Content": content,
+        "Image URL": image_url,
+        "Status": status,
     }
+    if assignee:
+        fields["Assignee"] = assignee
+    payload = {"fields": fields}
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -107,3 +109,42 @@ async def save_to_airtable(
         raise ServiceError(f"Airtable error {resp.status_code}: {resp.text}")
 
     return resp.json()
+
+
+async def update_airtable_record(record_id: str, fields: dict) -> dict:
+    token = os.getenv("AIRTABLE_TOKEN")
+    base_id = os.getenv("AIRTABLE_BASE_ID")
+    table_id = os.getenv("AIRTABLE_TABLE_ID")
+    if not token or not base_id or not table_id:
+        raise ServiceError("Airtable env vars not set")
+
+    url = AIRTABLE_URL.format(base=base_id, table=table_id) + f"/{record_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+        resp = await client.patch(url, json={"fields": fields}, headers=headers)
+
+    if resp.status_code >= 400:
+        raise ServiceError(f"Airtable update error {resp.status_code}: {resp.text}")
+    return resp.json()
+
+
+async def list_airtable_records(max_records: int = 100) -> list[dict]:
+    token = os.getenv("AIRTABLE_TOKEN")
+    base_id = os.getenv("AIRTABLE_BASE_ID")
+    table_id = os.getenv("AIRTABLE_TABLE_ID")
+    if not token or not base_id or not table_id:
+        raise ServiceError("Airtable env vars not set")
+
+    url = AIRTABLE_URL.format(base=base_id, table=table_id)
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"pageSize": str(min(max_records, 100))}
+
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+        resp = await client.get(url, headers=headers, params=params)
+
+    if resp.status_code >= 400:
+        raise ServiceError(f"Airtable list error {resp.status_code}: {resp.text}")
+    return resp.json().get("records", [])

@@ -49,14 +49,27 @@ ICON_OPTIONS = [
     "audit", "network", "alert",
 ]
 
+TONE_PRESETS = {
+    "default": "",
+    "punchy": "TONE OVERRIDE: punchy and opinionated. Short, declarative sentences. No filler. Hook is one line, blunt.",
+    "thoughtful": "TONE OVERRIDE: thoughtful and exploratory. Show nuance and second-order effects. Avoid hot takes. Let the reader sit with a tension.",
+    "question-led": "TONE OVERRIDE: question-led. Open with a question that names a real tension, and close with a different question that invites reply.",
+    "data-led": "TONE OVERRIDE: data-led. Anchor the caption in ONE specific, real, verifiable statistic from a named source (e.g. Verizon DBIR, Gartner, IBM Cost of a Data Breach, ENISA, NIST). If you cannot name a real source, do NOT invent one — use the 'industry pulse' archetype instead.",
+}
+
 
 def _pick_topic() -> str:
     return random.choice(FALLBACK_TOPICS)
 
 
-def build_messages(topic: str | None, custom_instructions: str | None) -> list[dict]:
+def build_messages(
+    topic: str | None,
+    custom_instructions: str | None,
+    tone: str | None = None,
+) -> list[dict]:
     chosen_topic = (topic or "").strip() or _pick_topic()
     extras = (custom_instructions or "").strip()
+    tone_directive = TONE_PRESETS.get((tone or "default").strip().lower(), "")
 
     system = (
         "You are a senior content strategist writing LinkedIn posts for "
@@ -73,6 +86,8 @@ def build_messages(topic: str | None, custom_instructions: str | None) -> list[d
 Generate ONE LinkedIn post and an accompanying infographic card payload on this topic:
 
 TOPIC: {chosen_topic}
+
+{tone_directive}
 
 {f"ADDITIONAL INSTRUCTIONS FROM USER: {extras}" if extras else ""}
 
@@ -128,7 +143,20 @@ Emphasis with Unicode (this is how LinkedIn posts get visual weight without mark
 - Do NOT bold or italicize every sentence. Most text is plain. Bold/italic are accents.
 
 Structure (follow this rough flow):
-1. CONVERSATIONAL HOOK (1-2 sentences): name a tension, a shift, or a misconception the audience will feel. Often opens with the audience ("Most CISOs we talk to...", "A lot of teams are...", "Let's be honest for a second..."). Make the hook Unicode bold.
+1. CONVERSATIONAL HOOK (1-2 sentences, Unicode bold): name a tension, a shift, or a misconception. CRITICAL: you must VARY THE OPENING STYLE every time. NEVER start with "Most CISOs we talk to" — that phrase is banned. NEVER reuse the same opener archetype two posts in a row. Pick a fresh one each generation from this list:
+
+   a) Audience-state shift: "[Audience] have stopped asking [old question]." OR "Quietly, [thing] became a [board / regulator / oncall] problem."
+   b) Honest concession: "Let's be honest." OR "Nobody loves saying this, but..." OR "Here's the uncomfortable part of [topic]:"
+   c) Misconception flip: "Everyone treats [X] like [Y]. It isn't." OR "[Common claim]. The reality is messier."
+   d) Industry pulse: "Something changed in [topic] this quarter." OR "[Sector] has a new failure mode and it isn't [obvious thing]."
+   e) Direct question: "What actually separates the teams that [outcome] from the ones that don't?"
+   f) Specific scenario: "A [role] told us last week that [observation]."
+   g) Counterintuitive claim: "The [tool / framework] you already pay for is doing more than you think." OR "The strongest [topic] programmes we see aren't the loudest."
+   h) Number-led (ONLY if you can name a real, verifiable, named-source stat — if not, skip this archetype): "[Real stat]. [Source name]."
+   i) Pattern observation: "We keep seeing the same [thing] across [N] [audience] conversations."
+   j) Recent event framing (ONLY if you are CERTAIN the event is real and recent): "[Real event] this week was a reminder that [insight]."
+
+   Pick one archetype, then write an opener in your own words. Do not copy the example sentences verbatim.
 2. A TOPICAL ANCHOR: briefly reference a current event, regulator action, recent incident, or industry shift — but ONLY if you are certain it is real and verifiable. If you cannot anchor to a real event, skip this paragraph rather than inventing one.
 3. CALLBACK TO THE CARD: one short sentence that points to the image/card alongside the post. Examples: "So we put together the [N] [items] we keep seeing across [layers]." or "The card breaks them down across [N] layers."
 4. ONE OR TWO ONE-LINE INSIGHTS: short, punchy, standalone takeaway sentences between paragraphs. Apply Unicode bold to the punchy part of one. Examples of the rhythm: "Identity is now where most attacks start." "Backup isn't resilience. 𝗥𝗲𝗰𝗼𝘃𝗲𝗿𝘆 𝘀𝗽𝗲𝗲𝗱 𝗶𝘀."
@@ -149,19 +177,19 @@ Reality check:
 
 VOICE EXAMPLES TO MATCH (do not copy text, copy the rhythm, density, and emphasis pattern):
 
-Example A:
-"𝗠𝗼𝘀𝘁 𝗖𝗜𝗦𝗢𝘀 𝘄𝗲 𝘁𝗮𝗹𝗸 𝘁𝗼 𝗮𝗿𝗲𝗻'𝘁 𝗮𝘀𝗸𝗶𝗻𝗴 𝘄𝗵𝗶𝗰𝗵 𝘁𝗼𝗼𝗹 𝗶𝘀 𝗯𝗲𝘀𝘁 𝗮𝗻𝘆𝗺𝗼𝗿𝗲.
-𝘛𝘩𝘦𝘺'𝘳𝘦 𝘢𝘴𝘬𝘪𝘯𝘨 𝘸𝘩𝘪𝘤𝘩 𝘤𝘰𝘮𝘣𝘪𝘯𝘢𝘵𝘪𝘰𝘯 𝘢𝘤𝘵𝘶𝘢𝘭𝘭𝘺 𝘩𝘰𝘭𝘥𝘴 𝘶𝘱.
+Example A (uses archetype "industry pulse"):
+"𝗦𝗼𝗺𝗲𝘁𝗵𝗶𝗻𝗴 𝗾𝘂𝗶𝗲𝘁 𝗯𝘂𝘁 𝗯𝗶𝗴 𝘀𝗵𝗶𝗳𝘁𝗲𝗱 𝗶𝗻 𝗲𝗻𝘁𝗲𝗿𝗽𝗿𝗶𝘀𝗲 𝗱𝗲𝗳𝗲𝗻𝗰𝗲 𝘁𝗵𝗶𝘀 𝗾𝘂𝗮𝗿𝘁𝗲𝗿.
+𝘛𝘩𝘦 𝘶𝘴𝘦𝘧𝘶𝘭 𝘲𝘶𝘦𝘴𝘵𝘪𝘰𝘯 𝘢𝘣𝘰𝘶𝘵 𝘵𝘰𝘰𝘭𝘪𝘯𝘨 𝘩𝘢𝘴 𝘤𝘩𝘢𝘯𝘨𝘦𝘥.
 
-That question got louder this week.
+It's no longer which product wins a category. It's which combination still works when AI finds flaws faster than vendors patch them.
 
-So we put together the [N] platforms we keep seeing in the stacks that hold up.
+We mapped the platforms that keep coming up across real stacks.
 Four layers ▶ 𝗧𝗵𝗿𝗲𝗮𝘁 𝗱𝗲𝗳𝗲𝗻𝗰𝗲, 𝗰𝗹𝗼𝘂𝗱, 𝗶𝗱𝗲𝗻𝘁𝗶𝘁𝘆, 𝗿𝗲𝘀𝗶𝗹𝗶𝗲𝗻𝗰𝗲.
 
-Identity is now where most attacks start.
+Identity is where most modern attacks now start.
 Backup isn't resilience. 𝗥𝗲𝗰𝗼𝘃𝗲𝗿𝘆 𝘀𝗽𝗲𝗲𝗱 𝗶𝘀.
 
-𝗔𝗻𝘆𝘁𝗵𝗶𝗻𝗴 𝘆𝗼𝘂'𝗱 𝗮𝗱𝗱?
+𝗪𝗵𝗮𝘁'𝘀 𝗺𝗶𝘀𝘀𝗶𝗻𝗴 𝗳𝗿𝗼𝗺 𝘁𝗵𝗶𝘀 𝗽𝗶𝗰𝘁𝘂𝗿𝗲?
 𝘊𝘶𝘳𝘪𝘰𝘶𝘴 𝘸𝘩𝘦𝘳𝘦 𝘵𝘦𝘢𝘮𝘴 𝘢𝘳𝘦 𝘥𝘰𝘶𝘣𝘭𝘪𝘯𝘨 𝘥𝘰𝘸𝘯.
 
 #Cybersecurity #InfoSec #CISO #ZeroTrust #IdentitySecurity"

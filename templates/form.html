@@ -60,7 +60,7 @@
       text-transform: uppercase;
       letter-spacing: 0.6px;
     }
-    input[type=text], textarea {
+    input[type=text], textarea, select {
       width: 100%;
       background: #fff;
       color: var(--text);
@@ -71,9 +71,16 @@
       font-family: inherit;
       outline: none;
       transition: border-color 0.15s;
+      appearance: none;
+    }
+    select {
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 38px;
     }
     input[type=text]::placeholder, textarea::placeholder { color: #9ca3af; }
-    input[type=text]:focus, textarea:focus { border-color: var(--accent); }
+    input[type=text]:focus, textarea:focus, select:focus { border-color: var(--accent); }
     textarea { min-height: 100px; resize: vertical; }
     .field { margin-bottom: 20px; }
     .note {
@@ -97,9 +104,28 @@
     }
     button:hover { opacity: 0.9; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .topnav {
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .topnav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .topnav a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
+  <div class="topnav">
+    <span></span>
+    <a href="/posts">All posts →</a>
+  </div>
   <div class="wordmark">DTQ</div>
   <form class="card" method="post" action="/generate" onsubmit="document.getElementById('btn').innerText='Generating…';document.getElementById('btn').disabled=true;">
     <h1>LinkedIn Content Generator</h1>
@@ -113,6 +139,25 @@
     <div class="field">
       <label for="custom_instructions">Custom instructions</label>
       <textarea id="custom_instructions" name="custom_instructions" placeholder="Optional: angle, audience focus, things to emphasize or avoid"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="assignee">Assign to</label>
+      <select id="assignee" name="assignee">
+        <option value="Unassigned">Unassigned</option>
+        {% for member in team %}
+        <option value="{{ member }}">{{ member }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="tone">Tone</label>
+      <select id="tone" name="tone">
+        {% for value, label in tones %}
+        <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
     </div>
 
     <div class="note">Generation takes about 20–30 seconds. Don't refresh.</div>

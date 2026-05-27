@@ -18,3 +18,5 @@ services:
         sync: false
       - key: AIRTABLE_TABLE_ID
         sync: false
+      - key: APP_PASSWORD
+        sync: false

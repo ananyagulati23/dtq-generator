@@ -14,98 +14,201 @@
       --accent: #0e1b3d;
       --error: #b91c1c;
       --warning: #92400e;
+      --success: #047857;
+      --li-text: #000000e6;
+      --li-muted: #00000099;
+      --li-blue: #0a66c2;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
     body {
       font-family: -apple-system, 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       min-height: 100vh;
-      padding: 56px 24px 80px;
+      padding: 28px 24px 80px;
     }
+    .topnav {
+      max-width: 760px;
+      margin: 0 auto 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .topnav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; }
+    .topnav a:hover { color: var(--accent); }
     .wrap { max-width: 760px; margin: 0 auto; }
     .wordmark {
       font-family: Georgia, 'Times New Roman', serif;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 4px;
-      color: var(--accent);
-      text-align: center;
-      margin-bottom: 40px;
+      font-size: 16px; font-weight: 700; letter-spacing: 4px;
+      color: var(--accent); text-align: center; margin-bottom: 28px;
     }
-    h1 {
-      margin: 0 0 24px;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.2px;
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 700; letter-spacing: -0.2px; }
+
+    /* Status bar */
+    .status-row {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
     }
+    .assignee-line { color: var(--muted); font-size: 13px; }
+    .assignee-line strong { color: var(--text); font-weight: 600; }
+    .status-pills { display: flex; gap: 4px; }
+    .pill {
+      background: #fff; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 999px; padding: 5px 12px; font-size: 12px;
+      font-weight: 500; cursor: pointer; transition: all 0.1s;
+    }
+    .pill:hover { border-color: var(--accent); color: var(--text); }
+    .pill.active {
+      background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;
+    }
+
     .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 16px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px; margin-bottom: 16px;
     }
     .panel.image-panel { padding: 16px; }
-    .card-image {
-      width: 100%;
-      display: block;
-      border-radius: 8px;
-    }
-    .caption {
-      white-space: pre-wrap;
-      font-size: 14px;
-      line-height: 1.65;
-      color: var(--text);
-    }
+    .card-image { width: 100%; display: block; border-radius: 8px; }
     .meta {
-      color: var(--muted);
-      font-size: 11px;
-      margin-bottom: 12px;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      font-weight: 600;
+      color: var(--muted); font-size: 11px; margin-bottom: 12px;
+      letter-spacing: 0.8px; text-transform: uppercase; font-weight: 600;
     }
-    .actions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
-    a.btn {
-      display: inline-block;
-      background: var(--accent);
-      color: #fff;
-      border: 1px solid var(--accent);
-      border-radius: 8px;
-      padding: 11px 18px;
-      font-size: 13px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: opacity 0.15s;
+    .toolbar { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+    .tb-btn {
+      background: #fff; border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; padding: 7px 12px; font-size: 13px;
+      font-family: inherit; cursor: pointer; transition: all 0.1s;
     }
-    a.btn:hover { opacity: 0.9; }
-    a.btn.secondary {
-      background: #fff;
-      color: var(--text);
-      border: 1px solid var(--border);
+    .tb-btn:hover { border-color: var(--accent); }
+    .tb-btn.b { font-weight: 800; }
+    .tb-btn.i { font-style: italic; font-family: Georgia, serif; }
+    .tb-btn.u { text-decoration: underline; }
+    .tb-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+    .tb-btn.primary:hover { opacity: 0.9; }
+    .tb-btn.primary:disabled, .tb-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tb-spacer { flex: 1; }
+    .tb-hint { color: var(--muted); font-size: 11px; }
+
+    #caption-editor {
+      width: 100%; min-height: 280px; padding: 14px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: -apple-system, 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 14px; line-height: 1.65; color: var(--text);
+      outline: none; resize: vertical; white-space: pre-wrap;
     }
-    a.btn.secondary:hover { border-color: var(--accent); }
+    #caption-editor:focus { border-color: var(--accent); }
+    .save-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 12px; flex-wrap: wrap; gap: 8px;
+    }
+    .save-state { font-size: 12px; color: var(--muted); }
+    .save-state.dirty { color: var(--warning); }
+    .save-state.saved { color: var(--success); }
+
+    .actions { margin: 24px 0 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+    a.btn, button.btn {
+      display: inline-block; background: var(--accent); color: #fff;
+      border: 1px solid var(--accent); border-radius: 8px; padding: 11px 18px;
+      font-size: 13px; font-weight: 600; text-decoration: none;
+      transition: opacity 0.15s; font-family: inherit; cursor: pointer;
+    }
+    a.btn:hover, button.btn:hover { opacity: 0.9; }
+    a.btn.secondary, button.btn.secondary {
+      background: #fff; color: var(--text); border: 1px solid var(--border);
+    }
+    a.btn.secondary:hover, button.btn.secondary:hover { border-color: var(--accent); }
+    button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .regen-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .regen-row button { padding: 10px 16px; font-size: 13px; }
+
     .error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: var(--error);
-      padding: 14px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      line-height: 1.55;
+      background: #fef2f2; border: 1px solid #fecaca; color: var(--error);
+      padding: 14px 16px; border-radius: 8px; font-size: 13px;
     }
     .warning {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      color: var(--warning);
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 12px;
-      margin-bottom: 16px;
+      background: #fffbeb; border: 1px solid #fde68a; color: var(--warning);
+      padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 16px;
     }
+    .copy-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: #fff; padding: 10px 18px;
+      border-radius: 8px; font-size: 13px; opacity: 0;
+      transition: opacity 0.2s; pointer-events: none; z-index: 100;
+    }
+    .copy-toast.show { opacity: 1; }
+    .copy-toast.error { background: var(--error); }
+    .copy-toast.success { background: var(--success); }
+
+    /* Inline loading overlay */
+    .regenerating {
+      position: relative; pointer-events: none;
+    }
+    .regenerating::after {
+      content: "Regenerating…"; position: absolute; inset: 0;
+      background: rgba(255,255,255,0.85); display: flex;
+      align-items: center; justify-content: center;
+      font-size: 14px; color: var(--text); font-weight: 600;
+      border-radius: 8px;
+    }
+
+    /* LinkedIn preview */
+    #linkedin-preview { display: none; margin-top: 20px; }
+    #linkedin-preview.open { display: block; }
+    .li-wrap { background: #f4f2ee; padding: 32px 16px; border-radius: 12px; border: 1px solid var(--border); }
+    .li-label {
+      text-align: center; color: var(--muted); font-size: 11px; letter-spacing: 0.8px;
+      text-transform: uppercase; font-weight: 600; margin-bottom: 16px;
+    }
+    .li-card {
+      max-width: 552px; margin: 0 auto; background: #fff; border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.08);
+      font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: var(--li-text); overflow: hidden;
+    }
+    .li-header { display: flex; padding: 12px 16px 0; align-items: flex-start; gap: 8px; }
+    .li-avatar {
+      width: 48px; height: 48px; background: var(--accent); color: #FFD23F;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-family: Georgia, serif; font-weight: 700; font-size: 14px; letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+    .li-name-block { flex: 1; min-width: 0; line-height: 1.3; }
+    .li-name { font-size: 14px; font-weight: 600; }
+    .li-name .li-degree { color: var(--li-muted); font-weight: 400; font-size: 12px; }
+    .li-role, .li-time { font-size: 12px; color: var(--li-muted); margin-top: 1px; }
+    .li-follow { color: var(--li-blue); font-weight: 600; font-size: 14px; padding: 6px 12px; cursor: pointer; }
+    .li-body { padding: 12px 16px 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
+    .li-seemore { color: var(--li-muted); cursor: pointer; font-weight: 400; }
+    .li-seemore:hover { color: var(--li-blue); text-decoration: underline; }
+    .li-image-wrap { margin-top: 12px; background: #000; line-height: 0; }
+    .li-image-wrap img { width: 100%; display: block; }
+    .li-reactions {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; font-size: 12px; color: var(--li-muted);
+    }
+    .li-reacts { display: flex; align-items: center; gap: 4px; }
+    .li-react-icon {
+      width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #fff;
+      display: inline-block; margin-left: -4px; font-size: 10px;
+      text-align: center; line-height: 13px;
+    }
+    .li-react-icon:first-child { margin-left: 0; }
+    .li-react-icon.like { background: #378fe9; color: #fff; }
+    .li-react-icon.celebrate { background: #6dae4f; color: #fff; }
+    .li-react-icon.insight { background: #f5bb54; color: #fff; }
+    .li-divider { border-top: 1px solid #00000014; margin: 0 16px; }
+    .li-action-bar { display: flex; justify-content: space-around; padding: 4px 8px; }
+    .li-action {
+      flex: 1; text-align: center; padding: 10px 6px; font-size: 14px;
+      font-weight: 600; color: var(--li-muted); border-radius: 4px; cursor: pointer;
+    }
+    .li-action:hover { background: #00000008; }
+    .li-action-icon { margin-right: 4px; }
   </style>
 </head>
 <body>
+  <div class="topnav">
+    <a href="/">← New post</a>
+    <a href="/posts">All posts →</a>
+  </div>
   <div class="wrap">
     <div class="wordmark">DTQ</div>
 
@@ -120,25 +223,291 @@
     {% else %}
       <h1>Generated post</h1>
 
+      <div class="status-row">
+        <div class="assignee-line">Assigned to <strong>{{ assignee }}</strong></div>
+        {% if record_id %}
+        <div class="status-pills" id="status-pills">
+          {% for s in status_flow %}
+            <button type="button" class="pill {% if s == status %}active{% endif %}" data-status="{{ s }}" onclick="setStatus('{{ s }}')">{{ s }}</button>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
       {% if warning %}
         <div class="warning">{{ warning }}</div>
       {% endif %}
 
-      <div class="panel image-panel">
-        <img class="card-image" src="{{ image_url }}" alt="Generated DTQ card" />
+      <div class="panel image-panel" id="image-panel">
+        <img class="card-image" id="card-img" src="{{ image_url }}" alt="Generated DTQ card" />
       </div>
 
-      <div class="panel">
+      <div class="panel" id="caption-panel">
         <div class="meta">LinkedIn caption</div>
-        <div class="caption">{{ caption }}</div>
+        <div class="toolbar">
+          <button class="tb-btn b" onclick="applyFormat('bold')" title="Bold (select text first)">B</button>
+          <button class="tb-btn i" onclick="applyFormat('italic')" title="Italic (select text first)">I</button>
+          <button class="tb-btn u" onclick="applyFormat('underline')" title="Underline (select text first)">U</button>
+          <button class="tb-btn" onclick="copyCaption()">Copy caption</button>
+          <span class="tb-spacer"></span>
+          <span class="tb-hint">Select text, then click a button to toggle.</span>
+        </div>
+        <textarea id="caption-editor" spellcheck="false">{{ caption }}</textarea>
+        <div class="save-row">
+          <div class="save-state" id="save-state">Saved</div>
+          <button class="tb-btn primary" id="save-btn" onclick="saveCaption()" {% if not record_id %}disabled title="Airtable not connected"{% endif %}>Save changes</button>
+        </div>
+      </div>
+
+      <div class="regen-row">
+        <button class="btn secondary" onclick="regenerate('caption')">Regenerate caption</button>
+        <button class="btn secondary" onclick="regenerate('image')">Regenerate image</button>
       </div>
 
       <div class="actions">
-        <a class="btn" href="/download?url={{ image_url|urlencode }}&filename=dtq-card.png">Download image</a>
+        <a class="btn" id="download-btn" href="/download?url={{ image_url|urlencode }}&filename=dtq-card.png">Download image</a>
+        <button class="btn secondary" onclick="togglePreview()" id="preview-btn">Preview as LinkedIn</button>
         <a class="btn secondary" href="/">Generate another</a>
-        <a class="btn secondary" href="{{ image_url }}" target="_blank" rel="noopener">Open image</a>
+      </div>
+
+      <div id="linkedin-preview">
+        <div class="li-wrap">
+          <div class="li-label">LinkedIn preview</div>
+          <div class="li-card">
+            <div class="li-header">
+              <div class="li-avatar">DTQ</div>
+              <div class="li-name-block">
+                <div class="li-name">Data Trust Quotients <span class="li-degree">· 1st</span></div>
+                <div class="li-role">Embedding trust in data governance and AI</div>
+                <div class="li-time">Now • 🌐</div>
+              </div>
+              <div class="li-follow">+ Follow</div>
+            </div>
+            <div id="li-body" class="li-body"></div>
+            <div class="li-image-wrap">
+              <img id="li-img" src="{{ image_url }}" alt="Card preview" />
+            </div>
+            <div class="li-reactions">
+              <div class="li-reacts">
+                <span class="li-react-icon like">👍</span>
+                <span class="li-react-icon celebrate">🎉</span>
+                <span class="li-react-icon insight">💡</span>
+                <span style="margin-left:6px;">142</span>
+              </div>
+              <div>23 comments · 8 reposts</div>
+            </div>
+            <div class="li-divider"></div>
+            <div class="li-action-bar">
+              <div class="li-action"><span class="li-action-icon">👍</span>Like</div>
+              <div class="li-action"><span class="li-action-icon">💬</span>Comment</div>
+              <div class="li-action"><span class="li-action-icon">🔁</span>Repost</div>
+              <div class="li-action"><span class="li-action-icon">📤</span>Send</div>
+            </div>
+          </div>
+        </div>
       </div>
     {% endif %}
   </div>
+
+  <div id="copy-toast" class="copy-toast"></div>
+
+  <script>
+    const RECORD_ID = {{ record_id|tojson if record_id else 'null' }};
+    const STATE = {
+      topic: {{ topic|tojson if topic is defined else '""' }},
+      custom_instructions: {{ custom_instructions|tojson if custom_instructions is defined else '""' }},
+      tone: {{ tone|tojson if tone is defined else '"default"' }}
+    };
+
+    // --- Unicode formatting ---
+    const BOLD_A = 0x1D5D4, BOLD_a = 0x1D5EE, BOLD_0 = 0x1D7EC;
+    const ITAL_A = 0x1D608, ITAL_a = 0x1D622;
+    const UNDERLINE = '̲';
+
+    function toBold(t) { return [...t].map(c => { const k = c.codePointAt(0);
+      if (k>=65&&k<=90) return String.fromCodePoint(BOLD_A+k-65);
+      if (k>=97&&k<=122) return String.fromCodePoint(BOLD_a+k-97);
+      if (k>=48&&k<=57) return String.fromCodePoint(BOLD_0+k-48);
+      return c; }).join(''); }
+    function fromBold(t) { return [...t].map(c => { const k = c.codePointAt(0);
+      if (k>=BOLD_A&&k<=BOLD_A+25) return String.fromCharCode(65+k-BOLD_A);
+      if (k>=BOLD_a&&k<=BOLD_a+25) return String.fromCharCode(97+k-BOLD_a);
+      if (k>=BOLD_0&&k<=BOLD_0+9) return String.fromCharCode(48+k-BOLD_0);
+      return c; }).join(''); }
+    function toItal(t) { return [...t].map(c => { const k = c.codePointAt(0);
+      if (k>=65&&k<=90) return String.fromCodePoint(ITAL_A+k-65);
+      if (k>=97&&k<=122) return String.fromCodePoint(ITAL_a+k-97);
+      return c; }).join(''); }
+    function fromItal(t) { return [...t].map(c => { const k = c.codePointAt(0);
+      if (k>=ITAL_A&&k<=ITAL_A+25) return String.fromCharCode(65+k-ITAL_A);
+      if (k>=ITAL_a&&k<=ITAL_a+25) return String.fromCharCode(97+k-ITAL_a);
+      return c; }).join(''); }
+    function hasBold(t) { return [...t].some(c => { const k = c.codePointAt(0);
+      return (k>=BOLD_A&&k<=BOLD_A+25)||(k>=BOLD_a&&k<=BOLD_a+25)||(k>=BOLD_0&&k<=BOLD_0+9); }); }
+    function hasItal(t) { return [...t].some(c => { const k = c.codePointAt(0);
+      return (k>=ITAL_A&&k<=ITAL_A+25)||(k>=ITAL_a&&k<=ITAL_a+25); }); }
+    function stripUnderline(t) { return t.replace(/̲/g, ''); }
+    function addUnderline(t) { return [...stripUnderline(t)].map(c => c==='\n'||c===' '?c:c+UNDERLINE).join(''); }
+
+    function applyFormat(kind) {
+      const ta = document.getElementById('caption-editor');
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      if (start === end) { flashToast('Select text first', 'error'); return; }
+      const before = ta.value.slice(0, start);
+      const selected = ta.value.slice(start, end);
+      const after = ta.value.slice(end);
+      let out;
+      if (kind === 'bold') out = hasBold(selected) ? fromBold(selected) : toBold(stripUnderline(selected));
+      else if (kind === 'italic') out = hasItal(selected) ? fromItal(selected) : toItal(stripUnderline(selected));
+      else out = selected.includes(UNDERLINE) ? stripUnderline(selected) : addUnderline(selected);
+      ta.value = before + out + after;
+      ta.setSelectionRange(start, start + out.length);
+      ta.focus();
+      markDirty();
+      updatePreview();
+    }
+
+    function copyCaption() {
+      navigator.clipboard.writeText(document.getElementById('caption-editor').value)
+        .then(() => flashToast('Copied to clipboard', 'success'));
+    }
+
+    function flashToast(msg, type) {
+      const t = document.getElementById('copy-toast');
+      t.textContent = msg;
+      t.className = 'copy-toast show' + (type ? ' ' + type : '');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    // --- Dirty / save state ---
+    let initialCaption = document.getElementById('caption-editor') ? document.getElementById('caption-editor').value : '';
+    function markDirty() {
+      const s = document.getElementById('save-state');
+      if (s) { s.textContent = 'Unsaved changes'; s.className = 'save-state dirty'; }
+    }
+    function markSaved() {
+      const s = document.getElementById('save-state');
+      if (s) { s.textContent = 'Saved'; s.className = 'save-state saved'; }
+      initialCaption = document.getElementById('caption-editor').value;
+    }
+
+    async function saveCaption() {
+      if (!RECORD_ID) { flashToast('Airtable not connected', 'error'); return; }
+      const ta = document.getElementById('caption-editor');
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const r = await fetch('/api/update-caption', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ record_id: RECORD_ID, caption: ta.value })
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Save failed');
+        markSaved();
+        flashToast('Saved to Airtable', 'success');
+      } catch (e) {
+        flashToast('Save failed: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save changes';
+      }
+    }
+
+    // --- Status ---
+    async function setStatus(status) {
+      if (!RECORD_ID) { flashToast('Airtable not connected', 'error'); return; }
+      try {
+        const r = await fetch('/api/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ record_id: RECORD_ID, status: status })
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Status update failed');
+        document.querySelectorAll('#status-pills .pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.status === status);
+        });
+        flashToast('Status: ' + status, 'success');
+      } catch (e) {
+        flashToast('Status update failed: ' + e.message, 'error');
+      }
+    }
+
+    // --- Regenerate ---
+    async function regenerate(what) {
+      if (!confirm('Regenerate ' + what + '? This will replace the current ' + what + '.')) return;
+      const target = what === 'caption' ? document.getElementById('caption-panel') : document.getElementById('image-panel');
+      target.classList.add('regenerating');
+      try {
+        const endpoint = what === 'caption' ? '/api/regenerate-caption' : '/api/regenerate-image';
+        const r = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            record_id: RECORD_ID,
+            topic: STATE.topic,
+            custom_instructions: STATE.custom_instructions,
+            tone: STATE.tone
+          })
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Regeneration failed');
+        if (what === 'caption') {
+          document.getElementById('caption-editor').value = data.caption;
+          markSaved();
+          updatePreview();
+        } else {
+          const url = data.image_url;
+          document.getElementById('card-img').src = url;
+          document.getElementById('li-img').src = url;
+          document.getElementById('download-btn').href = '/download?url=' + encodeURIComponent(url) + '&filename=dtq-card.png';
+        }
+        flashToast(what.charAt(0).toUpperCase() + what.slice(1) + ' regenerated', 'success');
+      } catch (e) {
+        flashToast('Regeneration failed: ' + e.message, 'error');
+      } finally {
+        target.classList.remove('regenerating');
+      }
+    }
+
+    // --- LinkedIn preview ---
+    const SEE_MORE_THRESHOLD = 210;
+    let previewExpanded = false;
+    function updatePreview() {
+      const ta = document.getElementById('caption-editor');
+      const body = document.getElementById('li-body');
+      if (!ta || !body) return;
+      const full = ta.value;
+      if (previewExpanded || full.length <= SEE_MORE_THRESHOLD) {
+        body.textContent = full;
+      } else {
+        const cut = full.slice(0, SEE_MORE_THRESHOLD).trimEnd();
+        body.textContent = cut + '… ';
+        const link = document.createElement('span');
+        link.className = 'li-seemore'; link.textContent = 'see more';
+        link.onclick = () => { previewExpanded = true; updatePreview(); };
+        body.appendChild(link);
+      }
+    }
+    function togglePreview() {
+      const wrap = document.getElementById('linkedin-preview');
+      const btn = document.getElementById('preview-btn');
+      const isOpen = wrap.classList.toggle('open');
+      btn.textContent = isOpen ? 'Hide LinkedIn preview' : 'Preview as LinkedIn';
+      if (isOpen) { updatePreview(); wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const ta = document.getElementById('caption-editor');
+      if (ta) {
+        ta.addEventListener('input', () => {
+          previewExpanded = false;
+          markDirty();
+          updatePreview();
+        });
+        markSaved();
+      }
+    });
+  </script>
 </body>
 </html>
