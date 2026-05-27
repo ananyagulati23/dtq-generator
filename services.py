@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 import httpx
 
@@ -23,7 +24,7 @@ async def call_groq(messages: list[dict]) -> dict:
         "model": "llama-3.3-70b-versatile",
         "messages": messages,
         "response_format": {"type": "json_object"},
-        "temperature": 0.8,
+        "temperature": 0.95,
         "max_tokens": 3000,
     }
     headers = {
@@ -34,6 +35,10 @@ async def call_groq(messages: list[dict]) -> dict:
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         resp = await client.post(GROQ_URL, json=payload, headers=headers)
 
+    if resp.status_code == 429:
+        m = re.search(r"try again in ([\d.]+)s", resp.text)
+        wait_hint = f" Try again in ~{m.group(1)}s." if m else ""
+        raise ServiceError(f"Groq rate limit hit (free-tier TPM cap).{wait_hint}")
     if resp.status_code >= 400:
         raise ServiceError(f"Groq error {resp.status_code}: {resp.text}")
 

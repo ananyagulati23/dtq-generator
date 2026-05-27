@@ -104,28 +104,9 @@
     }
     button:hover { opacity: 0.9; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .topnav {
-      width: 100%;
-      max-width: 560px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .topnav a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .topnav a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
-  <div class="topnav">
-    <span></span>
-    <a href="/posts">All posts →</a>
-  </div>
   <div class="wordmark">DTQ</div>
   <form class="card" method="post" action="/generate" onsubmit="document.getElementById('btn').innerText='Generating…';document.getElementById('btn').disabled=true;">
     <h1>LinkedIn Content Generator</h1>

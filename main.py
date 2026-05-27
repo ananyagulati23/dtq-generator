@@ -15,7 +15,6 @@ from services import (
     ServiceError,
     call_groq,
     call_hcti,
-    list_airtable_records,
     save_to_airtable,
     update_airtable_record,
 )
@@ -28,7 +27,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app = FastAPI(title="DTQ LinkedIn Content Generator")
 
 TEAM_MEMBERS = ["Naman Kothari", "Piyush", "Agrima", "Kavya", "Ananya"]
-STATUS_FLOW = ["Draft", "Ready for Review", "Approved", "Published"]
+STATUS_FLOW = ["Draft", "Ready for Review", "Approved", "Done"]
 TONE_OPTIONS = [
     ("default", "Default — balanced DTQ voice"),
     ("punchy", "Punchy — short, opinionated"),
@@ -152,22 +151,22 @@ async def generate(
         def _item_count(d: dict) -> int:
             return sum(len(c.get("items") or []) for c in (d.get("categories") or []))
 
-        if _item_count(data) < 14:
-            retry_messages = messages + [
-                {"role": "assistant", "content": str(data)},
-                {
-                    "role": "user",
-                    "content": (
-                        "That response had too few items. Regenerate the SAME JSON object, "
-                        "but ensure the categories contain a TOTAL of at least 16 items "
-                        "across exactly 4 categories (4-5 items per category). Keep every "
-                        "item a real named thing. Return ONLY the JSON object."
-                    ),
-                },
-            ]
-            retry_data = await call_groq(retry_messages)
-            if _item_count(retry_data) > _item_count(data):
-                data = retry_data
+        # Only retry on egregiously low counts to avoid blowing the Groq TPM budget.
+        # Don't replay the prior response — just re-prompt with stronger emphasis.
+        if _item_count(data) < 10:
+            retry_messages = build_messages(topic, custom_instructions, tone=tone)
+            retry_messages[0]["content"] = (
+                retry_messages[0]["content"]
+                + "\n\nRETRY NOTICE: A prior attempt returned too few items. "
+                "You MUST return exactly 4 categories with 16-20 total items (4-5 per category). "
+                "Count before responding."
+            )
+            try:
+                retry_data = await call_groq(retry_messages)
+                if _item_count(retry_data) > _item_count(data):
+                    data = retry_data
+            except ServiceError:
+                pass  # keep the original (low-item) result rather than failing the whole request
     except ServiceError as e:
         return err("Groq generation failed", str(e))
     except Exception as e:
@@ -290,37 +289,3 @@ async def api_regenerate_image(payload: RegenPayload):
     except ServiceError as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
 
-
-# --- Posts list view ---
-
-
-@app.get("/posts", response_class=HTMLResponse)
-async def posts(request: Request):
-    try:
-        raw = await list_airtable_records()
-    except ServiceError as e:
-        return templates.TemplateResponse(
-            request,
-            "posts.html",
-            {"error": str(e), "records": [], "team": TEAM_MEMBERS, "statuses": STATUS_FLOW},
-        )
-
-    raw.sort(key=lambda r: r.get("createdTime", ""), reverse=True)
-    records = []
-    for r in raw:
-        f = r.get("fields") or {}
-        records.append(
-            {
-                "id": r.get("id", ""),
-                "title": f.get("Post Title") or "(untitled)",
-                "assignee": f.get("Assignee") or "Unassigned",
-                "status": f.get("Status") or "Draft",
-                "image_url": f.get("Image URL") or "",
-                "created": (r.get("createdTime") or "")[:10],
-            }
-        )
-    return templates.TemplateResponse(
-        request,
-        "posts.html",
-        {"error": None, "records": records, "team": TEAM_MEMBERS, "statuses": STATUS_FLOW},
-    )

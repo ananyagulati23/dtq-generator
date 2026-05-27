@@ -102,15 +102,15 @@ Return a SINGLE JSON object (no markdown, no commentary) with EXACTLY these keys
   "caption": "string - the full LinkedIn post text, see CAPTION RULES below",
   "categories": [
     {{
-      "name": "string - short group name, 2-5 words",
+      "name": "string - 2-5 words. CRITICAL: category names MUST be derived from the natural cuts WITHIN THIS SPECIFIC TOPIC. Do NOT force every topic into a generic taxonomy. Different topics need totally different category names. Examples by topic: For 'AI image generation tools' use cuts like ['Foundation Models', 'Editing Tools', 'Specialized Generators', 'Open Source']. For 'SEO in 2026' use cuts like ['AI Search Engines', 'Content Platforms', 'Technical SEO', 'Analytics']. For 'AI funding 2026' use cuts like ['Top VCs', 'Accelerators', 'Grants & Programs', 'Angel Networks']. For 'AI tools for retail' use cuts like ['Personalisation', 'Inventory', 'Visual Search', 'Customer Service']. For 'Y Combinator 2026 watchlist' use cuts like ['Dev Tools', 'AI Infra', 'Fintech', 'Healthtech']. For 'Cybersecurity stack' use cuts like ['Threat Defence', 'Identity', 'Cloud', 'Resilience']. NEVER default to cybersecurity layers unless the topic is explicitly about cybersecurity. Look at the topic, ask what natural divisions exist WITHIN it, pick those.",
       "items": [
         {{
           "title": "string - the named real thing (framework / regulation / tool / vendor / standard)",
           "description": "string - 6-15 words, factual, what it is or does",
           "icon": "string - one of: {", ".join(ICON_OPTIONS)}",
-          "domain": "string - the brand's primary website domain in lowercase, no protocol, no path, no www. Examples: 'crowdstrike.com', 'okta.com', 'paloaltonetworks.com', 'microsoft.com', 'cloudflare.com', 'wiz.io', 'snyk.io', 'sentinelone.com', 'zscaler.com', 'rubrik.com', 'druva.com', 'tenable.com', 'aikido.dev', 'vorlonsecurity.com', 'pushsecurity.com'. If the item is a framework / regulation / standard with no parent company (e.g. NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, MITRE ATLAS, SOC 2), set domain to an EMPTY STRING ''.",
-          "brand_letter": "string - SINGLE uppercase letter, used as a fallback if no logo can be fetched. Usually the first letter of the title (e.g. 'C' for CrowdStrike, 'M' for Microsoft Defender)",
-          "brand_color": "string - hex color like '#dc1e2c' used as the fallback badge background when no logo is shown. If the brand has a well-known color, use it (CrowdStrike red #e2231a, Okta blue #007dc1, Wiz purple #5048e5, Microsoft blue #0078d4, Cloudflare orange #f48120, Snyk purple #4c4a73, Palo Alto orange #fa582d, SentinelOne purple #6b21a8, Zscaler blue #00b1eb, Rubrik green #00b388, Druva orange #f37021, Tenable teal #00688b). For frameworks/regulations without a brand color, pick a sensible solid hex."
+          "domain": "string - the brand's primary website domain in lowercase, no protocol, no path, no www. The brand MUST be a real, well-known company/tool relevant to THIS topic. Domain examples across sectors: cybersecurity -> 'crowdstrike.com', 'okta.com', 'wiz.io', 'cloudflare.com'; AI tools -> 'openai.com', 'anthropic.com', 'midjourney.com', 'stability.ai', 'huggingface.co', 'runwayml.com', 'perplexity.ai', 'mistral.ai'; SEO/content -> 'semrush.com', 'ahrefs.com', 'surferseo.com', 'clearscope.io'; VCs / funding -> 'ycombinator.com', 'a16z.com', 'sequoiacap.com', 'khoslaventures.com', 'lightspeed.com'; SaaS / productivity -> 'notion.so', 'linear.app', 'figma.com', 'slack.com'; retail/ecom -> 'shopify.com', 'klaviyo.com', 'gorgias.com'. PICK BRANDS THAT FIT THE TOPIC. If the item is a framework / regulation / standard / methodology with no parent company (e.g. NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, MITRE ATLAS, SOC 2, GDPR), set domain to an EMPTY STRING ''.",
+          "brand_letter": "string - SINGLE uppercase letter, used as a fallback if no logo can be fetched. Usually the first letter of the title (e.g. 'C' for CrowdStrike, 'M' for Midjourney, 'Y' for Y Combinator)",
+          "brand_color": "string - hex color like '#dc1e2c' used as the fallback badge background. Pick a color that matches the brand if you know it, otherwise any solid hex."
         }}
       ]
     }}
@@ -121,7 +121,8 @@ STRUCTURE RULES (HARD REQUIREMENTS — these are non-negotiable):
 - categories: EXACTLY 4 groups (not 3, not 5 — exactly 4).
 - total items across all categories: AT LEAST 16, at most 20. Before you respond, COUNT your items. If the total is below 16, add more real named things until you reach 16. A response with fewer than 16 items is invalid.
 - distribute items roughly evenly: 4-5 items per category.
-- each item.title MUST be a REAL named thing (e.g. NIST AI RMF, ISO 42001, EU AI Act, Microsoft Purview, OpenAI, Splunk, CrowdStrike, OWASP LLM Top 10, MITRE ATLAS, SOC 2, etc.). No invented tools.
+- each item.title MUST be a REAL named thing relevant to THIS topic. Examples across sectors so you don't anchor on one: AI tools (OpenAI, Anthropic, Midjourney, Stable Diffusion, Hugging Face, LangChain, Pinecone), security (CrowdStrike, Okta, Wiz, Splunk), frameworks (NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, SOC 2, GDPR), VCs / accelerators (Y Combinator, a16z, Sequoia, Khosla Ventures, Lightspeed), SaaS (Notion, Linear, Figma, Slack), data tools (Snowflake, Databricks, dbt, Fivetran), SEO/content (Semrush, Ahrefs, Surfer SEO). NEVER invent tools. NEVER default to security vendors if the topic isn't about security.
+- category names MUST reflect the topic. Do not reuse 'Threat Defence / Identity / Cloud / Resilience' unless the topic is specifically about a cybersecurity stack.
 - "highlight" must be a substring that appears verbatim inside "hook".
 - icon must be one of the allowed values; if unsure, use "shield".
 - brand_letter MUST be exactly ONE uppercase A-Z character, normally the first letter of the title.
@@ -177,22 +178,30 @@ Reality check:
 
 VOICE EXAMPLES TO MATCH (do not copy text, copy the rhythm, density, and emphasis pattern):
 
-Example A (uses archetype "industry pulse"):
-"𝗦𝗼𝗺𝗲𝘁𝗵𝗶𝗻𝗴 𝗾𝘂𝗶𝗲𝘁 𝗯𝘂𝘁 𝗯𝗶𝗴 𝘀𝗵𝗶𝗳𝘁𝗲𝗱 𝗶𝗻 𝗲𝗻𝘁𝗲𝗿𝗽𝗿𝗶𝘀𝗲 𝗱𝗲𝗳𝗲𝗻𝗰𝗲 𝘁𝗵𝗶𝘀 𝗾𝘂𝗮𝗿𝘁𝗲𝗿.
-𝘛𝘩𝘦 𝘶𝘴𝘦𝘧𝘶𝘭 𝘲𝘶𝘦𝘴𝘵𝘪𝘰𝘯 𝘢𝘣𝘰𝘶𝘵 𝘵𝘰𝘰𝘭𝘪𝘯𝘨 𝘩𝘢𝘴 𝘤𝘩𝘢𝘯𝘨𝘦𝘥.
+Example A (industry-pulse archetype; the [BRACKETED] strings are PLACEHOLDERS — you MUST replace them with words drawn from YOUR actual topic, NEVER copy them verbatim):
+"𝗦𝗼𝗺𝗲𝘁𝗵𝗶𝗻𝗴 𝗾𝘂𝗶𝗲𝘁 𝗯𝘂𝘁 𝗯𝗶𝗴 𝗶𝘀 𝘀𝗵𝗶𝗳𝘁𝗶𝗻𝗴 𝗶𝗻 [TOPIC AREA] 𝘁𝗵𝗶𝘀 𝗾𝘂𝗮𝗿𝘁𝗲𝗿.
+𝘛𝘩𝘦 𝘶𝘴𝘦𝘧𝘶𝘭 𝘲𝘶𝘦𝘴𝘵𝘪𝘰𝘯 𝘢𝘣𝘰𝘶𝘵 [SUBJECT] 𝘩𝘢𝘴 𝘤𝘩𝘢𝘯𝘨𝘦𝘥.
 
-It's no longer which product wins a category. It's which combination still works when AI finds flaws faster than vendors patch them.
+It's no longer about [old framing]. It's about [new framing relevant to your topic].
 
-We mapped the platforms that keep coming up across real stacks.
-Four layers ▶ 𝗧𝗵𝗿𝗲𝗮𝘁 𝗱𝗲𝗳𝗲𝗻𝗰𝗲, 𝗰𝗹𝗼𝘂𝗱, 𝗶𝗱𝗲𝗻𝘁𝗶𝘁𝘆, 𝗿𝗲𝘀𝗶𝗹𝗶𝗲𝗻𝗰𝗲.
+We mapped what keeps showing up across [audience]'s real stacks.
+The cuts that emerged ▶ 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗔, 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗕, 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗖, 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗗.
+(Replace those with the actual category names you chose for this topic.)
 
-Identity is where most modern attacks now start.
-Backup isn't resilience. 𝗥𝗲𝗰𝗼𝘃𝗲𝗿𝘆 𝘀𝗽𝗲𝗲𝗱 𝗶𝘀.
+[One short, specific insight about the topic — 6-12 words.]
+[Another one-liner with the punchy half in 𝗯𝗼𝗹𝗱.]
 
 𝗪𝗵𝗮𝘁'𝘀 𝗺𝗶𝘀𝘀𝗶𝗻𝗴 𝗳𝗿𝗼𝗺 𝘁𝗵𝗶𝘀 𝗽𝗶𝗰𝘁𝘂𝗿𝗲?
-𝘊𝘶𝘳𝘪𝘰𝘶𝘴 𝘸𝘩𝘦𝘳𝘦 𝘵𝘦𝘢𝘮𝘴 𝘢𝘳𝘦 𝘥𝘰𝘶𝘣𝘭𝘪𝘯𝘨 𝘥𝘰𝘸𝘯.
+𝘊𝘶𝘳𝘪𝘰𝘶𝘴 𝘸𝘩𝘦𝘳𝘦 [audience] 𝘢𝘳𝘦 𝘥𝘰𝘶𝘣𝘭𝘪𝘯𝘨 𝘥𝘰𝘸𝘯.
 
-#Cybersecurity #InfoSec #CISO #ZeroTrust #IdentitySecurity"
+[5-8 hashtags chosen for THIS topic, not generic security ones]"
+
+Topic-specific hashtag examples so you don't default to security tags:
+- AI tools post: #AI #GenerativeAI #LLM #AITools #EnterpriseAI
+- SEO post: #SEO #ContentMarketing #DigitalStrategy #AISearch
+- Funding post: #Startups #VentureCapital #FoundersJourney #AIFunding
+- Data governance post: #DataGovernance #DataPrivacy #AIGovernance #ResponsibleAI
+- Security post (only when topic is security): #Cybersecurity #InfoSec #CISO #ZeroTrust
 
 Example B:
 "𝘓𝘦𝘵'𝘴 𝘣𝘦 𝘩𝘰𝘯𝘦𝘴𝘵 𝘧𝘰𝘳 𝘢 𝘴𝘦𝘤𝘰𝘯𝘥...
