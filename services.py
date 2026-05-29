@@ -34,31 +34,45 @@ async def call_groq(messages: list[dict]) -> dict:
         "Content-Type": "application/json",
     }
 
-    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-        resp = await client.post(GROQ_URL, json=payload, headers=headers)
+    # Groq's JSON mode occasionally returns invalid/incomplete JSON (or wraps it
+    # in code fences). It's stochastic, so retry once before giving up.
+    for attempt in range(2):
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+            resp = await client.post(GROQ_URL, json=payload, headers=headers)
 
-    if resp.status_code == 429:
-        m = re.search(r"try again in ([\d.]+)s", resp.text)
-        wait_hint = f" Try again in ~{m.group(1)}s." if m else ""
-        raise ServiceError(f"Groq rate limit hit (free-tier TPM cap).{wait_hint}")
-    if resp.status_code == 400 and "json_validate_failed" in resp.text:
-        raise ServiceError(
-            "The AI response was cut off before the JSON finished. Please try again "
-            "(a more specific topic usually helps)."
-        )
-    if resp.status_code >= 400:
-        raise ServiceError(f"Groq error {resp.status_code}: {resp.text}")
+        if resp.status_code == 429:
+            m = re.search(r"try again in ([\d.]+)s", resp.text)
+            wait_hint = f" Try again in ~{m.group(1)}s." if m else ""
+            raise ServiceError(f"Groq rate limit hit (free-tier TPM cap).{wait_hint}")
+        if resp.status_code == 400 and "json_validate_failed" in resp.text:
+            if attempt == 0:
+                continue
+            raise ServiceError(
+                "The AI returned invalid JSON twice in a row. Please try again "
+                "(a more specific topic usually helps)."
+            )
+        if resp.status_code >= 400:
+            raise ServiceError(f"Groq error {resp.status_code}: {resp.text}")
 
-    body = resp.json()
-    try:
-        content = body["choices"][0]["message"]["content"]
-    except (KeyError, IndexError) as e:
-        raise ServiceError(f"Unexpected Groq response shape: {body}") from e
+        body = resp.json()
+        try:
+            content = body["choices"][0]["message"]["content"]
+        except (KeyError, IndexError) as e:
+            raise ServiceError(f"Unexpected Groq response shape: {body}") from e
 
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError as e:
-        raise ServiceError(f"Groq returned non-JSON content: {content[:500]}") from e
+        content = content.strip()
+        if content.startswith("```"):
+            content = re.sub(r"^```(?:json)?\s*", "", content)
+            content = re.sub(r"\s*```$", "", content).strip()
+
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            if attempt == 0:
+                continue
+            raise ServiceError(f"Groq returned non-JSON content: {content[:500]}")
+
+    raise ServiceError("Groq did not return valid JSON. Please try again.")
 
 
 async def call_hcti(html: str) -> str:
