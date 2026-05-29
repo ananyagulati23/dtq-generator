@@ -27,7 +27,7 @@ async def call_groq(messages: list[dict]) -> dict:
         "messages": messages,
         "response_format": {"type": "json_object"},
         "temperature": 0.7,
-        "max_tokens": 3000,
+        "max_tokens": 6000,
     }
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -41,6 +41,11 @@ async def call_groq(messages: list[dict]) -> dict:
         m = re.search(r"try again in ([\d.]+)s", resp.text)
         wait_hint = f" Try again in ~{m.group(1)}s." if m else ""
         raise ServiceError(f"Groq rate limit hit (free-tier TPM cap).{wait_hint}")
+    if resp.status_code == 400 and "json_validate_failed" in resp.text:
+        raise ServiceError(
+            "The AI response was cut off before the JSON finished. Please try again "
+            "(a more specific topic usually helps)."
+        )
     if resp.status_code >= 400:
         raise ServiceError(f"Groq error {resp.status_code}: {resp.text}")
 
