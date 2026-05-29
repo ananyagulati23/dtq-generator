@@ -119,6 +119,48 @@
     .regen-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
     .regen-row button { padding: 10px 16px; font-size: 13px; }
 
+    /* Design customizer */
+    #design-panel { padding: 0; overflow: hidden; }
+    .design-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 24px; cursor: pointer; user-select: none;
+    }
+    .design-head:hover { background: #f9fafb; }
+    .design-chevron { color: var(--muted); font-size: 14px; transition: transform 0.15s; }
+    .design-chevron.open { transform: rotate(90deg); }
+    .design-body { display: none; padding: 4px 24px 24px; }
+    .design-body.open { display: block; }
+    .design-grid { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+    .design-controls { flex: 1; min-width: 280px; }
+    .design-preview { flex-shrink: 0; }
+    .design-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 0; border-top: 1px solid var(--border);
+    }
+    .design-row > label {
+      width: 100px; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--text);
+    }
+    .design-control { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+    .design-control input[type=range] { flex: 1; min-width: 120px; max-width: 200px; accent-color: var(--accent); }
+    .design-control input[type=color] { width: 40px; height: 32px; border: 1px solid var(--border); border-radius: 6px; padding: 2px; background: #fff; cursor: pointer; }
+    .design-control input[type=number] { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 13px; font-family: inherit; }
+    .range-val { font-size: 12px; color: var(--muted); }
+    .design-control select {
+      padding: 8px 28px 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; font-family: inherit; background: #fff; min-width: 200px; appearance: none;
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%236b7280' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .design-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    .preview-frame-wrap {
+      width: 360px; height: 360px; overflow: hidden; border-radius: 8px;
+      border: 1px solid var(--border); background: #0e1b3d;
+    }
+    #preview-frame {
+      width: 1080px; height: 1080px; border: 0; display: block;
+      transform: scale(0.3333); transform-origin: top left;
+    }
+
     .error {
       background: #fef2f2; border: 1px solid #fecaca; color: var(--error);
       padding: 14px 16px; border-radius: 8px; font-size: 13px;
@@ -242,6 +284,77 @@
         <img class="card-image" id="card-img" src="{{ image_url }}" alt="Generated DTQ card" />
       </div>
 
+      {% if card_data %}
+      <div class="panel" id="design-panel">
+        <div class="design-head" onclick="toggleDesign()">
+          <span class="meta" style="margin:0;">Customize design — live preview</span>
+          <span class="design-chevron" id="design-chevron">▸</span>
+        </div>
+        <div class="design-body" id="design-body">
+          <div class="design-grid">
+            <div class="design-controls">
+              <div class="design-row">
+                <label>Logo size</label>
+                <div class="design-control">
+                  <input type="range" id="opt-logo" min="40" max="320" step="5" value="{{ default_style.logo_px }}">
+                  <input type="number" id="opt-logo-num" min="40" max="320" step="5" value="{{ default_style.logo_px }}" style="width:64px;">
+                  <span class="range-val">px</span>
+                </div>
+              </div>
+
+              <div class="design-row">
+                <label>Background</label>
+                <div class="design-control">
+                  <input type="color" id="opt-bg" value="{{ default_style.bg_color }}">
+                  <button type="button" class="tb-btn" id="bg-grad-toggle" onclick="toggleBgGrad()">Gradient: off</button>
+                </div>
+              </div>
+              <div class="design-row" id="bg-grad-row" style="display:none;">
+                <label>Gradient</label>
+                <div class="design-control">
+                  <input type="color" id="opt-bg2" value="{{ default_style.bg_color2 }}">
+                  <span class="range-val">angle</span>
+                  <input type="number" id="opt-bg-angle" min="0" max="360" step="15" value="{{ default_style.bg_angle }}" style="width:64px;">
+                </div>
+              </div>
+
+              <div class="design-row">
+                <label>Accent</label>
+                <div class="design-control">
+                  <input type="color" id="opt-accent" value="{{ default_style.accent_color }}">
+                  <span class="tb-hint">Highlight, subtitle, headers</span>
+                </div>
+              </div>
+
+              <div class="design-row">
+                <label>Heading font</label>
+                <div class="design-control">
+                  <select id="opt-font">
+                    {% for value, label in font_options %}
+                    <option value="{{ value }}" {% if value == default_style.heading_font %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div class="design-actions">
+                <button class="tb-btn primary" id="apply-design-btn" onclick="applyDesign()">Apply &amp; save</button>
+                <span class="tb-hint">Preview is instant. "Apply" renders the final image (1 HCTI image) and saves it. No AI tokens, text unchanged.</span>
+              </div>
+            </div>
+
+            <div class="design-preview">
+              <div class="meta">Live preview</div>
+              <div class="preview-frame-wrap">
+                <iframe id="preview-frame" scrolling="no" title="Card preview"></iframe>
+              </div>
+              <div class="tb-hint" style="margin-top:8px;max-width:360px;">Drag the logo to move it. Drag the yellow corner dot to resize. Or use the logo-size control on the left.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <div class="panel" id="caption-panel">
         <div class="meta">LinkedIn caption</div>
         <div class="toolbar">
@@ -318,6 +431,7 @@
       custom_instructions: {{ custom_instructions|tojson if custom_instructions is defined else '""' }},
       tone: {{ tone|tojson if tone is defined else '"default"' }}
     };
+    let CARD_DATA = {{ card_data|tojson if card_data else 'null' }};
 
     // --- Unicode formatting ---
     const BOLD_A = 0x1D5D4, BOLD_a = 0x1D5EE, BOLD_0 = 0x1D7EC;
@@ -461,6 +575,7 @@
           document.getElementById('card-img').src = url;
           document.getElementById('li-img').src = url;
           document.getElementById('download-btn').href = '/download?url=' + encodeURIComponent(url) + '&filename=dtq-card.png';
+          if (data.card_data) CARD_DATA = data.card_data;
         }
         flashToast(what.charAt(0).toUpperCase() + what.slice(1) + ' regenerated', 'success');
       } catch (e) {
@@ -468,6 +583,101 @@
       } finally {
         target.classList.remove('regenerating');
       }
+    }
+
+    // --- Design customizer (live preview) ---
+    function toggleDesign() {
+      const body = document.getElementById('design-body');
+      const chevron = document.getElementById('design-chevron');
+      const open = body.classList.toggle('open');
+      chevron.classList.toggle('open', open);
+      if (open) updateDesignPreview();
+    }
+    let bgGradient = false;
+    function toggleBgGrad() {
+      bgGradient = !bgGradient;
+      const btn = document.getElementById('bg-grad-toggle');
+      btn.textContent = 'Gradient: ' + (bgGradient ? 'on' : 'off');
+      btn.classList.toggle('on', bgGradient);
+      document.getElementById('bg-grad-row').style.display = bgGradient ? '' : 'none';
+      updateDesignPreview();
+    }
+    const LOGO_POS = { x: null, y: null };
+    function gatherStyle() {
+      return {
+        logo_px: parseInt(document.getElementById('opt-logo').value, 10) || 160,
+        logo_x: LOGO_POS.x,
+        logo_y: LOGO_POS.y,
+        bg_color: document.getElementById('opt-bg').value,
+        bg_gradient: bgGradient,
+        bg_color2: document.getElementById('opt-bg2').value,
+        bg_angle: parseInt(document.getElementById('opt-bg-angle').value, 10) || 135,
+        accent_color: document.getElementById('opt-accent').value,
+        heading_font: document.getElementById('opt-font').value
+      };
+    }
+    // Logo drag/resize messages from the preview iframe
+    window.addEventListener('message', (e) => {
+      if (!e.data || e.data.type !== 'dtq-logo') return;
+      LOGO_POS.x = e.data.x;
+      LOGO_POS.y = e.data.y;
+      if (e.data.size) {
+        document.getElementById('opt-logo').value = e.data.size;
+        document.getElementById('opt-logo-num').value = e.data.size;
+      }
+    });
+    let designPreviewTimer = null;
+    function updateDesignPreview() {
+      if (!CARD_DATA) return;
+      clearTimeout(designPreviewTimer);
+      designPreviewTimer = setTimeout(async () => {
+        try {
+          const r = await fetch('/api/card-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: CARD_DATA, style: gatherStyle() })
+          });
+          document.getElementById('preview-frame').srcdoc = await r.text();
+        } catch (e) { /* ignore transient preview errors */ }
+      }, 180);
+    }
+    async function applyDesign() {
+      if (!CARD_DATA) { flashToast('No card data available', 'error'); return; }
+      const panel = document.getElementById('image-panel');
+      const btn = document.getElementById('apply-design-btn');
+      panel.classList.add('regenerating');
+      btn.disabled = true; btn.textContent = 'Applying…';
+      try {
+        const r = await fetch('/api/restyle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ record_id: RECORD_ID, data: CARD_DATA, style: gatherStyle() })
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Restyle failed');
+        const url = data.image_url;
+        document.getElementById('card-img').src = url;
+        const liImg = document.getElementById('li-img');
+        if (liImg) liImg.src = url;
+        document.getElementById('download-btn').href = '/download?url=' + encodeURIComponent(url) + '&filename=dtq-card.png';
+        flashToast('Design applied and saved', 'success');
+      } catch (e) {
+        flashToast('Apply failed: ' + e.message, 'error');
+      } finally {
+        panel.classList.remove('regenerating');
+        btn.disabled = false; btn.textContent = 'Apply & save';
+      }
+    }
+    function wireDesignControls() {
+      const logo = document.getElementById('opt-logo');
+      const logoNum = document.getElementById('opt-logo-num');
+      if (!logo) return;
+      logo.addEventListener('input', () => { logoNum.value = logo.value; updateDesignPreview(); });
+      logoNum.addEventListener('input', () => { logo.value = logoNum.value; updateDesignPreview(); });
+      ['opt-bg', 'opt-bg2', 'opt-bg-angle', 'opt-accent', 'opt-font'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.addEventListener('input', updateDesignPreview); el.addEventListener('change', updateDesignPreview); }
+      });
     }
 
     // --- LinkedIn preview ---
@@ -507,6 +717,8 @@
         });
         markSaved();
       }
+      wireDesignControls();
+      updateDesignPreview();
     });
   </script>
 </body>

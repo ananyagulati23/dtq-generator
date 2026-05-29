@@ -3,8 +3,6 @@ import html
 import re
 from pathlib import Path
 
-BG = "#0e1b3d"
-YELLOW = "#FFD23F"
 WHITE = "#ffffff"
 MUTED = "#c9d1e3"
 
@@ -12,6 +10,34 @@ _LOGO_PATH = Path(__file__).parent / "static" / "dtq-logo.png"
 _HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 _DOMAIN_RE = re.compile(r"^[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+$")
 _logo_cache: str | None = None
+
+# Curated style options exposed to the result-page customizer.
+FONT_OPTIONS = {
+    "sans": {"label": "Inter (Modern Sans)", "family": "'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif", "google": "Inter:wght@400;600;700;800"},
+    "montserrat": {"label": "Montserrat", "family": "'Montserrat', sans-serif", "google": "Montserrat:wght@400;600;800"},
+    "poppins": {"label": "Poppins", "family": "'Poppins', sans-serif", "google": "Poppins:wght@400;600;800"},
+    "dmsans": {"label": "DM Sans", "family": "'DM Sans', sans-serif", "google": "DM+Sans:wght@400;700"},
+    "raleway": {"label": "Raleway", "family": "'Raleway', sans-serif", "google": "Raleway:wght@400;700;800"},
+    "space": {"label": "Space Grotesk", "family": "'Space Grotesk', sans-serif", "google": "Space+Grotesk:wght@400;700"},
+    "condensed": {"label": "Oswald (Condensed)", "family": "'Oswald', 'Arial Narrow', sans-serif", "google": "Oswald:wght@400;500;700"},
+    "bebas": {"label": "Bebas Neue (Tall)", "family": "'Bebas Neue', Impact, sans-serif", "google": "Bebas+Neue"},
+    "anton": {"label": "Anton (Heavy)", "family": "'Anton', Impact, sans-serif", "google": "Anton"},
+    "archivo": {"label": "Archivo Black", "family": "'Archivo Black', sans-serif", "google": "Archivo+Black"},
+    "serif": {"label": "Playfair Display (Serif)", "family": "'Playfair Display', Georgia, serif", "google": "Playfair+Display:wght@700;900"},
+    "lora": {"label": "Lora (Serif)", "family": "'Lora', Georgia, serif", "google": "Lora:wght@400;700"},
+    "merriweather": {"label": "Merriweather (Serif)", "family": "'Merriweather', Georgia, serif", "google": "Merriweather:wght@400;700"},
+    "abril": {"label": "Abril Fatface (Display)", "family": "'Abril Fatface', Georgia, serif", "google": "Abril+Fatface"},
+}
+
+DEFAULT_STYLE = {
+    "logo_px": 160,
+    "bg_color": "#0e1b3d",
+    "accent_color": "#FFD23F",
+    "heading_font": "sans",
+    "bg_gradient": False,
+    "bg_color2": "#241a3d",
+    "bg_angle": 135,
+}
 
 
 def _logo_data_uri() -> str | None:
@@ -36,13 +62,13 @@ def _wrap_highlight(hook: str, highlight: str) -> str:
     if not pattern.search(safe_hook):
         return safe_hook
     return pattern.sub(
-        f'<span style="color:{YELLOW}">{safe_h}</span>',
+        '<span style="color:var(--accent)">' + safe_h + "</span>",
         safe_hook,
         count=1,
     )
 
 
-def _safe_color(value: str | None, fallback: str = "#1f2a55") -> str:
+def _safe_color(value: str | None, fallback: str) -> str:
     if value and isinstance(value, str) and _HEX_RE.match(value.strip()):
         return value.strip()
     return fallback
@@ -112,9 +138,9 @@ def _render_categories(categories: list[dict]) -> str:
             continue
         blocks.append(
             f'<div style="break-inside:avoid;page-break-inside:avoid;margin-bottom:22px;">'
-            f'<div style="color:{YELLOW};font-size:20px;font-weight:800;'
+            f'<div style="color:var(--accent);font-size:20px;font-weight:800;'
             f'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;'
-            f'padding-bottom:8px;border-bottom:2px solid rgba(255,210,63,0.25);">{name}</div>'
+            f'padding-bottom:8px;border-bottom:2px solid rgba(255,255,255,0.16);">{name}</div>'
             f'<ul style="list-style:none;padding:0;margin:0;">'
             f'{"".join(items_html)}'
             f'</ul>'
@@ -123,36 +149,147 @@ def _render_categories(categories: list[dict]) -> str:
     return "".join(blocks)
 
 
-def _render_logo() -> str:
+_LOGO_DRAG_SCRIPT = """
+<script>
+(function(){
+  var box=document.getElementById('dtq-logo-box');
+  if(!box) return;
+  var img=document.getElementById('dtq-logo-img');
+  var handle=box.querySelector('.resize-h');
+  var dragging=false,resizing=false,sx,sy,ol,ot,oh;
+  box.addEventListener('mousedown',function(e){
+    sx=e.clientX; sy=e.clientY;
+    if(handle && e.target===handle){ resizing=true; oh=img.offsetHeight; }
+    else { dragging=true; ol=box.offsetLeft; ot=box.offsetTop; }
+    e.preventDefault(); e.stopPropagation();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(dragging){
+      box.style.left=(ol+(e.clientX-sx))+'px';
+      box.style.top=(ot+(e.clientY-sy))+'px';
+      box.style.right='auto';
+    } else if(resizing){
+      var nh=Math.max(40,Math.min(320,oh+(e.clientY-sy)));
+      img.style.height=nh+'px';
+    }
+  });
+  document.addEventListener('mouseup',function(){
+    if(dragging||resizing){
+      parent.postMessage({type:'dtq-logo',x:Math.round(box.offsetLeft),y:Math.round(box.offsetTop),size:Math.round(img.offsetHeight)},'*');
+    }
+    dragging=false; resizing=false;
+  });
+})();
+</script>
+"""
+
+
+def _render_logo(logo_px: int, logo_x, logo_y, editable: bool) -> str:
     logo_uri = _logo_data_uri()
     if logo_uri:
-        return (
-            f'<img src="{logo_uri}" alt="DTQ" '
-            f'style="height:90px;width:auto;filter:brightness(0) invert(1);"/>'
+        inner = (
+            f'<img id="dtq-logo-img" src="{logo_uri}" alt="DTQ" draggable="false" '
+            f'style="height:{logo_px}px;width:auto;display:block;filter:brightness(0) invert(1);"/>'
         )
+    else:
+        text_px = max(28, int(logo_px * 0.55))
+        inner = (
+            f'<div id="dtq-logo-img" style="color:{WHITE};font-weight:900;font-size:{text_px}px;'
+            f'letter-spacing:6px;line-height:1;font-family:Georgia,\'Times New Roman\',serif;">DTQ</div>'
+        )
+
+    if logo_x is not None and logo_y is not None:
+        pos = f"left:{logo_x}px;top:{logo_y}px;"
+    else:
+        pos = "right:70px;top:64px;"
+
+    handle = ""
+    cursor = ""
+    if editable:
+        cursor = "cursor:move;"
+        handle = (
+            '<div class="resize-h" style="position:absolute;right:-8px;bottom:-8px;width:16px;'
+            'height:16px;background:#fff;border:2px solid #FFD23F;border-radius:50%;'
+            'cursor:nwse-resize;"></div>'
+        )
+
     return (
-        f'<div style="color:{WHITE};font-weight:900;font-size:48px;letter-spacing:4px;'
-        f'line-height:1;font-family:Georgia,\'Times New Roman\',serif;">DTQ</div>'
+        f'<div id="dtq-logo-box" style="position:absolute;{pos}{cursor}z-index:10;">'
+        f'{inner}{handle}</div>'
     )
 
 
-def build_card_html(data: dict) -> str:
+def _merge_style(style: dict | None) -> dict:
+    s = dict(DEFAULT_STYLE)
+    if style:
+        s.update({k: v for k, v in style.items() if v not in (None, "")})
+    bg = _safe_color(str(s.get("bg_color")), DEFAULT_STYLE["bg_color"])
+    bg2 = _safe_color(str(s.get("bg_color2")), DEFAULT_STYLE["bg_color2"])
+    accent = _safe_color(str(s.get("accent_color")), DEFAULT_STYLE["accent_color"])
+    try:
+        logo_px = max(40, min(320, int(s.get("logo_px"))))
+    except (ValueError, TypeError):
+        logo_px = DEFAULT_STYLE["logo_px"]
+    try:
+        bg_angle = int(s.get("bg_angle"))
+    except (ValueError, TypeError):
+        bg_angle = DEFAULT_STYLE["bg_angle"]
+    bg_gradient = bool(s.get("bg_gradient"))
+    font_key = s.get("heading_font") if s.get("heading_font") in FONT_OPTIONS else "sans"
+
+    def _int_or_none(v):
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return None
+
+    return {
+        "bg_color": bg, "bg_color2": bg2, "bg_angle": bg_angle, "bg_gradient": bg_gradient,
+        "accent_color": accent, "logo_px": logo_px, "heading_font": font_key,
+        "logo_x": _int_or_none(s.get("logo_x")), "logo_y": _int_or_none(s.get("logo_y")),
+    }
+
+
+def build_card_html(data: dict, style: dict | None = None, editable: bool = False) -> str:
+    s = _merge_style(style)
+    accent = s["accent_color"]
+    logo_px = s["logo_px"]
+    font = FONT_OPTIONS[s["heading_font"]]
+
+    if s["bg_gradient"]:
+        bg_css = f"linear-gradient({s['bg_angle']}deg, {s['bg_color']}, {s['bg_color2']})"
+    else:
+        bg_css = s["bg_color"]
+
     hook = _wrap_highlight(data.get("hook", ""), data.get("highlight", ""))
     subtitle = html.escape((data.get("subtitle") or "").strip())
     categories_html = _render_categories(data.get("categories") or [])
-    logo_html = _render_logo()
+    logo_html = _render_logo(logo_px, s["logo_x"], s["logo_y"], editable)
+    drag_script = _LOGO_DRAG_SCRIPT if editable else ""
+    topbar_h = logo_px if (s["logo_x"] is None and s["logo_y"] is None) else 40
+
+    google_links = "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+    google_links += (
+        "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?"
+        f"family={font['google']}&family=Inter:wght@400;600;700;800&display=swap'>"
+    )
 
     return f"""<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
+{google_links}
 <style>
+  :root {{
+    --accent: {accent};
+    --heading-font: {font['family']};
+  }}
   * {{ box-sizing: border-box; }}
   html, body {{ margin: 0; padding: 0; }}
   body {{
     width: 1080px;
     height: 1080px;
-    background: {BG};
+    background: {bg_css};
     color: {WHITE};
     font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -166,25 +303,24 @@ def build_card_html(data: dict) -> str:
     position: relative;
   }}
   .topbar {{
-    display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
-    min-height: 90px;
+    min-height: {topbar_h}px;
   }}
   .hook {{
     color: {WHITE};
-    font-size: 60px;
+    font-family: var(--heading-font);
+    font-size: 56px;
     font-weight: 800;
     line-height: 1.08;
-    margin-top: 16px;
+    margin-top: 8px;
     letter-spacing: -0.5px;
   }}
   .subtitle {{
-    color: {YELLOW};
+    color: var(--accent);
+    font-family: var(--heading-font);
     font-size: 22px;
     font-weight: 600;
-    margin-top: 18px;
-    margin-bottom: 36px;
+    margin-top: 16px;
+    margin-bottom: 30px;
     letter-spacing: 0.3px;
   }}
   .grid {{
@@ -196,10 +332,12 @@ def build_card_html(data: dict) -> str:
 </head>
 <body>
   <div class="card">
-    <div class="topbar">{logo_html}</div>
+    {logo_html}
+    <div class="topbar"></div>
     <div class="hook">{hook}</div>
     <div class="subtitle">{subtitle}</div>
     <div class="grid">{categories_html}</div>
   </div>
+  {drag_script}
 </body>
 </html>"""

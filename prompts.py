@@ -78,7 +78,40 @@ def build_messages(
         "confident, factual, plain English, zero hype, zero marketing fluff. "
         "Never invent tools, vendors, frameworks, regulations, or statistics. "
         "Every named entity must be a real, verifiable thing. If you are not "
-        "sure something is real, do not include it."
+        "sure something is real, do not include it.\n\n"
+        "FOUR NON-NEGOTIABLE RELIABILITY RULES (most failures come from breaking these):\n"
+        "1. COHERENCE: the headline, subtitle, and caption must describe what the "
+        "card ACTUALLY contains. The card is a curated catalogue of real named "
+        "things. Do not write a news-style or attack-narrative headline that the "
+        "listed items do not substantiate. A reader who looks at the items must be "
+        "able to see the headline is literally true.\n"
+        "2. CORRECT CATEGORISATION: a category name is a PROMISE about every item "
+        "under it. Each item must be a real, PRIMARY instance of its category, not "
+        "merely topic-adjacent. A general-purpose platform does not belong under a "
+        "specialised function it does not actually perform. Before placing an item, "
+        "ask: 'Is this thing literally and primarily a <category name>?' If not, "
+        "move it or replace it.\n"
+        "3. EXACT REAL NAMES: use the exact product, vendor, framework, or standard "
+        "name as it really exists. Never bolt a function onto a brand to invent a "
+        "product (e.g. 'Mailchimp Abuse Detection' is not a real product). Never "
+        "list a tool under a job it is not actually used for. Accuracy always beats "
+        "filling a quota: fewer correct items is better than padding with items "
+        "that do not fit.\n"
+        "4. NO DEFAMATION / NO MISLABELLING: never present a real, legitimate "
+        "company, product, or person as a malicious actor, an attack/hacking tool, "
+        "an illegal service, or as performing a function it does not perform. "
+        "Mainstream AI vendors (OpenAI, Anthropic, Google, Microsoft, Hugging Face, "
+        "Midjourney, etc.) are NOT 'phishing tools', 'hacking tools', or 'attack "
+        "tools' and must never be labelled as such. Do not stretch a product into a "
+        "category it does not serve (an EDR tool is not a 'phishing detector'; an "
+        "MFA/identity product is not a 'phishing detector'; a cloud-posture tool is "
+        "not an email-security tool). When the topic is about attacks, threats, or "
+        "misuse, represent the offensive side with real, neutral, factual named "
+        "things, recognised attack TECHNIQUES and tactics (e.g. spear phishing, "
+        "credential stuffing, deepfake voice cloning, MITRE ATT&CK techniques) or "
+        "documented threat categories, NOT legitimate vendor brands relabelled as "
+        "weapons. If the only honest description is 'general-purpose tool that can "
+        "be misused', name the TECHNIQUE, not the brand, or drop that category."
         "\n\n" + DTQ_CONTEXT
     )
 
@@ -96,17 +129,17 @@ Return a SINGLE JSON object (no markdown, no commentary) with EXACTLY these keys
 {{
   "topic": "string - the topic in 3-8 words",
   "title": "string - short post title, 4-10 words, used as Airtable record title",
-  "hook": "string - the card headline, 6-12 words, punchy, no hype",
+  "hook": "string - the card headline, 6-12 words, punchy, no hype. MUST faithfully describe what the card actually contains (a curated set of real named things in this topic). It is a label for the collection, NOT a speculative news headline, attack story, or any claim the listed items do not back up. A reader scanning the items must agree the hook is literally accurate.",
   "highlight": "string - one or two words from the hook to highlight in yellow on the card",
-  "subtitle": "string - one short line under the hook, 4-10 words",
+  "subtitle": "string - one short line under the hook, 4-10 words. Reinforces or frames the actual card contents; never introduces a claim or storyline the items do not support.",
   "caption": "string - the full LinkedIn post text, see CAPTION RULES below",
   "categories": [
     {{
-      "name": "string - 2-5 words. CRITICAL: category names MUST be derived from the natural cuts WITHIN THIS SPECIFIC TOPIC. Do NOT force every topic into a generic taxonomy. Different topics need totally different category names. Examples by topic: For 'AI image generation tools' use cuts like ['Foundation Models', 'Editing Tools', 'Specialized Generators', 'Open Source']. For 'SEO in 2026' use cuts like ['AI Search Engines', 'Content Platforms', 'Technical SEO', 'Analytics']. For 'AI funding 2026' use cuts like ['Top VCs', 'Accelerators', 'Grants & Programs', 'Angel Networks']. For 'AI tools for retail' use cuts like ['Personalisation', 'Inventory', 'Visual Search', 'Customer Service']. For 'Y Combinator 2026 watchlist' use cuts like ['Dev Tools', 'AI Infra', 'Fintech', 'Healthtech']. For 'Cybersecurity stack' use cuts like ['Threat Defence', 'Identity', 'Cloud', 'Resilience']. NEVER default to cybersecurity layers unless the topic is explicitly about cybersecurity. Look at the topic, ask what natural divisions exist WITHIN it, pick those.",
+      "name": "string - 2-5 words. CRITICAL: category names MUST be derived from the natural cuts WITHIN THIS SPECIFIC TOPIC. Do NOT force every topic into a generic taxonomy. Different topics need totally different category names. Examples by topic: For 'AI image generation tools' use cuts like ['Foundation Models', 'Editing Tools', 'Specialized Generators', 'Open Source']. For 'SEO in 2026' use cuts like ['AI Search Engines', 'Content Platforms', 'Technical SEO', 'Analytics']. For 'AI funding 2026' use cuts like ['Top VCs', 'Accelerators', 'Grants & Programs', 'Angel Networks']. For 'AI tools for retail' use cuts like ['Personalisation', 'Inventory', 'Visual Search', 'Customer Service']. For 'Y Combinator 2026 watchlist' use cuts like ['Dev Tools', 'AI Infra', 'Fintech', 'Healthtech']. For 'Cybersecurity stack' use cuts like ['Threat Defence', 'Identity', 'Cloud', 'Resilience']. NEVER default to cybersecurity layers unless the topic is explicitly about cybersecurity. Look at the topic, ask what natural divisions exist WITHIN it, pick those. A category name is a PROMISE that EVERY item beneath it satisfies: if you cannot fill a category with at least 4 real items that are each a primary, genuine instance of that exact name, choose a different category cut. Do NOT keep a category and pad it with items that only loosely relate.",
       "items": [
         {{
-          "title": "string - the named real thing (framework / regulation / tool / vendor / standard)",
-          "description": "string - 6-15 words, factual, what it is or does",
+          "title": "string - the exact, real name of the thing (framework / regulation / tool / vendor / standard) AS IT ACTUALLY EXISTS. Do not invent product or feature names by attaching a function to a brand (e.g. NOT 'Mailchimp Abuse Detection'). If a vendor has a real named product for this category, use that exact product name; otherwise use the plain brand/standard name. The thing MUST be a primary, genuine instance of THIS item's category, not just topic-adjacent.",
+          "description": "string - 6-15 words, factual, describing what the thing ACTUALLY and PRIMARILY does. The description must be true of the real product and must be consistent with the category it sits under. If the honest description does not fit the category, the item is in the wrong place; fix it.",
           "icon": "string - one of: {", ".join(ICON_OPTIONS)}",
           "domain": "string - the brand's primary website domain in lowercase, no protocol, no path, no www. The brand MUST be a real, well-known company/tool relevant to THIS topic. Domain examples across sectors: cybersecurity -> 'crowdstrike.com', 'okta.com', 'wiz.io', 'cloudflare.com'; AI tools -> 'openai.com', 'anthropic.com', 'midjourney.com', 'stability.ai', 'huggingface.co', 'runwayml.com', 'perplexity.ai', 'mistral.ai'; SEO/content -> 'semrush.com', 'ahrefs.com', 'surferseo.com', 'clearscope.io'; VCs / funding -> 'ycombinator.com', 'a16z.com', 'sequoiacap.com', 'khoslaventures.com', 'lightspeed.com'; SaaS / productivity -> 'notion.so', 'linear.app', 'figma.com', 'slack.com'; retail/ecom -> 'shopify.com', 'klaviyo.com', 'gorgias.com'. PICK BRANDS THAT FIT THE TOPIC. If the item is a framework / regulation / standard / methodology with no parent company (e.g. NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, MITRE ATLAS, SOC 2, GDPR), set domain to an EMPTY STRING ''.",
           "brand_letter": "string - SINGLE uppercase letter, used as a fallback if no logo can be fetched. Usually the first letter of the title (e.g. 'C' for CrowdStrike, 'M' for Midjourney, 'Y' for Y Combinator)",
@@ -119,10 +152,13 @@ Return a SINGLE JSON object (no markdown, no commentary) with EXACTLY these keys
 
 STRUCTURE RULES (HARD REQUIREMENTS — these are non-negotiable):
 - categories: EXACTLY 4 groups (not 3, not 5 — exactly 4).
-- total items across all categories: AT LEAST 16, at most 20. Before you respond, COUNT your items. If the total is below 16, add more real named things until you reach 16. A response with fewer than 16 items is invalid.
+- total items across all categories: AT LEAST 16, at most 20. Before you respond, COUNT your items. If the total is below 16, add more real named things THAT GENUINELY FIT THEIR CATEGORY until you reach 16. Never reach the count by padding a category with items that do not truly belong, by inventing names, or by listing a tool under a function it does not perform. If a topic cannot honestly yield 16 correctly-categorised real items, re-choose your 4 category cuts so that it can. Accuracy and correct categorisation outrank the count.
 - distribute items roughly evenly: 4-5 items per category.
 - each item.title MUST be a REAL named thing relevant to THIS topic. Examples across sectors so you don't anchor on one: AI tools (OpenAI, Anthropic, Midjourney, Stable Diffusion, Hugging Face, LangChain, Pinecone), security (CrowdStrike, Okta, Wiz, Splunk), frameworks (NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, SOC 2, GDPR), VCs / accelerators (Y Combinator, a16z, Sequoia, Khosla Ventures, Lightspeed), SaaS (Notion, Linear, Figma, Slack), data tools (Snowflake, Databricks, dbt, Fivetran), SEO/content (Semrush, Ahrefs, Surfer SEO). NEVER invent tools. NEVER default to security vendors if the topic isn't about security.
 - category names MUST reflect the topic. Do not reuse 'Threat Defence / Identity / Cloud / Resilience' unless the topic is specifically about a cybersecurity stack.
+- SEMANTIC FIT (hard requirement): every item must be a primary, genuine instance of its category name. Apply the classification test: would the vendor's own marketing, or an industry analyst (e.g. a Gartner/Forrester market category), file THIS exact product under THIS category? If it is famous for a DIFFERENT category, do not borrow it. Examples of what NOT to do: CrowdStrike Falcon (endpoint/EDR) under 'Phishing Detection'; Okta (identity/MFA) under 'Phishing Detection'; Wiz (cloud posture/CSPM) under 'Phishing Detection'. Use the genuine leaders of the EXACT category instead (for email/phishing defence that would be names like Proofpoint, Mimecast, Abnormal Security, Microsoft Defender for Office 365). A general-purpose platform does NOT belong under a specialised category unless it really is a product of that exact kind.
+- NO DEFAMATION (hard requirement): never list a legitimate company, product, or person under a category that frames it as malicious, illegal, or as an attack/hacking tool. Mainstream AI vendors are not 'phishing/hacking/attack tools'. For offensive or threat topics, populate the attacker side with real attack TECHNIQUES, tactics, or documented threat categories (e.g. spear phishing, deepfake voice cloning, credential stuffing, MITRE ATT&CK techniques), not legitimate brand names.
+- HEADLINE FIT (hard requirement): the card is ALWAYS a set of categorised lists, never a sequence of steps. So "hook" and "subtitle" must describe a catalogue, landscape, or breakdown, and must NEVER promise a "step-by-step", "how-to", "process", "stages", "walkthrough", "timeline", or "playbook of steps" that the categorised items do not deliver. They must accurately summarise the actual items, not a story, attack, or trend the items do not demonstrate.
 - "highlight" must be a substring that appears verbatim inside "hook".
 - icon must be one of the allowed values; if unsure, use "shield".
 - brand_letter MUST be exactly ONE uppercase A-Z character, normally the first letter of the title.
@@ -215,6 +251,15 @@ Not because the cert is bad, but because it doesn't align with the career they w
 Which track do you think is the most underrated? 👀
 
 #Cybersecurity #CISO #CyberCareers #SecurityCertifications"
+
+FINAL SELF-CHECK BEFORE YOU RETURN (run through every item — this is where reliability is won or lost):
+1. Headline test: read "hook" and "subtitle", then scan the items. Does the card actually deliver what the headline promises? If the headline tells a story the items do not back up, rewrite the headline to describe the real contents. Confirm it does NOT promise steps, a process, a walkthrough, or a timeline — the card is categorised lists.
+2. Category test: for EACH item, read its title against its category name and ask "would the vendor or an analyst actually classify this exact product under this category?" If no, replace the item or move it. Reject products famous for a neighbouring category (e.g. an EDR or MFA or cloud-posture tool placed under 'Phishing Detection') and general-purpose tools dropped into specialised categories.
+3. Defamation test: for EACH item, confirm no legitimate company/product/person is framed as malicious, illegal, or an attack/hacking tool. If a category is about the attacker side, confirm its items are real techniques/tactics, not legitimate vendor brands.
+4. Real-name test: for EACH item, confirm the title is the exact real name of a thing that genuinely exists. Delete anything you invented, any brand+function mashups, and anything you are not confident is real.
+5. Description test: for EACH item, confirm the description is true of the real thing AND consistent with its category.
+6. Count test: confirm exactly 4 categories and 16-20 items total, 4-5 per category, with NO padding. If fixing the above dropped you below 16, add more genuinely-fitting real items or re-cut the categories.
+Only after all six checks pass do you return the JSON.
 
 Return ONLY the JSON object. No preface, no code fences."""
 
