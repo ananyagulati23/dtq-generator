@@ -168,8 +168,10 @@ STRUCTURE RULES (HARD REQUIREMENTS — these are non-negotiable):
 CAPTION RULES (this is the LinkedIn post body — match the voice of the examples below):
 
 Length and format:
-- Length: 1100 to 1500 characters total.
-- Short paragraphs separated by blank lines.
+- Target 120 to 170 words. A thin, one-line-per-section caption is NOT acceptable. If your draft is under 110 words, expand it with specific detail before returning.
+- Every sentence must carry a concrete, real point. NO filler lines (e.g. "a lot of companies are moving to the cloud" is banned filler). Replace any generic statement with a specific, factual observation tied to the topic or a named item on the card.
+- Tight, not padded: no repetition, no throat-clearing. Each line earns its place, but there must be enough substance to reach the length above.
+- Short paragraphs (1-3 lines each) separated by blank lines.
 - No markdown asterisks, no headers, no bulleted lists with dashes or stars.
 - NO em-dashes (—). Use commas, periods, or colons instead. This is strict.
 - No hype words: "revolutionize", "game-changer", "unlock", "supercharge", "leverage", "next-gen", "cutting-edge", "harness", "empower", "transform".

@@ -1,9 +1,7 @@
-import asyncio
 import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
@@ -20,7 +18,6 @@ from services import (
     call_groq,
     call_hcti,
     save_to_airtable,
-    send_email,
     update_airtable_record,
 )
 
@@ -135,42 +132,6 @@ async def download(url: str, filename: str = "dtq-card.png"):
     )
 
 
-async def _notify_assignee(name: str, title: str, record_id: str, due_dt: datetime) -> str | None:
-    """Email the assignee about a new task. Returns a warning string on failure, else None."""
-    email = (TEAM_EMAILS.get(name) or "").strip()
-    if not email:
-        return f"No email on file for {name}; notification skipped (add it in TEAM_EMAILS)."
-
-    base = os.getenv("AIRTABLE_BASE_ID", "")
-    table = os.getenv("AIRTABLE_TABLE_ID", "")
-    record_url = f"https://airtable.com/{base}/{table}/{record_id}" if base and table else "your Airtable base"
-
-    tz_name = os.getenv("DISPLAY_TZ", "Asia/Kolkata")
-    try:
-        due_local = due_dt.astimezone(ZoneInfo(tz_name)).strftime("%b %d, %Y at %I:%M %p")
-        tz_label = tz_name
-    except Exception:
-        due_local = due_dt.strftime("%b %d, %Y at %I:%M %p")
-        tz_label = "UTC"
-
-    subject = f"New DTQ post assigned to you: {title}"
-    body = (
-        f"Hi {name},\n\n"
-        f"A new LinkedIn post has been assigned to you in the DTQ content tracker.\n\n"
-        f"Post: {title}\n"
-        f"Open the record: {record_url}\n\n"
-        f"Please review it, post it on LI and mark it Done within {DEADLINE_HOURS} hours.\n"
-        f"Deadline: {due_local} ({tz_label})\n\n"
-       
-        f"— DTQ Content Generator"
-    )
-    try:
-        await asyncio.to_thread(send_email, email, subject, body)
-        return None
-    except Exception as e:
-        return f"Assignment email to {name} failed: {e}"
-
-
 @app.post("/generate", response_class=HTMLResponse)
 async def generate(
     request: Request,
@@ -242,30 +203,36 @@ async def generate(
     airtable_warning = None
     record_id = None
     assignee_value = assignee.strip() if assignee and assignee != "Unassigned" else None
-    due_dt = None
+    assignee_email = (TEAM_EMAILS.get(assignee_value) or "").strip() if assignee_value else None
     due_iso = None
     if assignee_value:
-        due_dt = datetime.now(timezone.utc) + timedelta(hours=DEADLINE_HOURS)
-        due_iso = due_dt.isoformat()
+        due_iso = (datetime.now(timezone.utc) + timedelta(hours=DEADLINE_HOURS)).isoformat()
+    save_kwargs = dict(
+        title=data["title"],
+        content=data["caption"],
+        image_url=image_url,
+        assignee=assignee_value,
+        due_date=due_iso,
+        assignee_email=assignee_email,
+    )
     try:
-        result = await save_to_airtable(
-            title=data["title"],
-            content=data["caption"],
-            image_url=image_url,
-            assignee=assignee_value,
-            due_date=due_iso,
-        )
+        result = await save_to_airtable(**save_kwargs)
         record_id = result.get("id")
     except ServiceError as e:
-        airtable_warning = f"Airtable save failed: {e}"
+        # If the optional "Assignee Email" field isn't in Airtable yet, retry without it
+        # so the post still saves.
+        if assignee_email and "Assignee Email" in str(e):
+            try:
+                save_kwargs["assignee_email"] = None
+                result = await save_to_airtable(**save_kwargs)
+                record_id = result.get("id")
+                airtable_warning = "Add an 'Assignee Email' field in Airtable to enable assignment emails."
+            except Exception as e2:
+                airtable_warning = f"Airtable save failed: {e2}"
+        else:
+            airtable_warning = f"Airtable save failed: {e}"
     except Exception as e:
         airtable_warning = f"Airtable save failed: {e}"
-
-    # Notify the assignee by email (non-fatal).
-    if assignee_value and record_id:
-        notice = await _notify_assignee(assignee_value, data.get("title", ""), record_id, due_dt)
-        if notice:
-            airtable_warning = f"{airtable_warning} | {notice}" if airtable_warning else notice
 
     return templates.TemplateResponse(
         request,

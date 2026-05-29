@@ -1,8 +1,6 @@
 import json
 import os
 import re
-import smtplib
-from email.message import EmailMessage
 
 import httpx
 
@@ -107,6 +105,7 @@ async def save_to_airtable(
     status: str = "Draft",
     assignee: str | None = None,
     due_date: str | None = None,
+    assignee_email: str | None = None,
 ) -> dict:
     token = os.getenv("AIRTABLE_TOKEN")
     base_id = os.getenv("AIRTABLE_BASE_ID")
@@ -123,6 +122,8 @@ async def save_to_airtable(
     }
     if assignee:
         fields["Assignee"] = assignee
+    if assignee_email:
+        fields["Assignee Email"] = assignee_email
     if due_date:
         fields["Due Date"] = due_date
     payload = {"fields": fields}
@@ -177,25 +178,3 @@ async def list_airtable_records(max_records: int = 100) -> list[dict]:
     if resp.status_code >= 400:
         raise ServiceError(f"Airtable list error {resp.status_code}: {resp.text}")
     return resp.json().get("records", [])
-
-
-def send_email(to_email: str, subject: str, body: str) -> None:
-    """Blocking SMTP send (call via asyncio.to_thread). Configured for Gmail by default."""
-    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER")
-    password = os.getenv("SMTP_PASS")
-    from_email = os.getenv("FROM_EMAIL") or user
-    if not user or not password:
-        raise ServiceError("SMTP_USER or SMTP_PASS not set")
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = from_email
-    msg["To"] = to_email
-    msg.set_content(body)
-
-    with smtplib.SMTP(host, port, timeout=20) as server:
-        server.starttls()
-        server.login(user, password)
-        server.send_message(msg)
