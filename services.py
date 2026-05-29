@@ -25,7 +25,7 @@ async def call_groq(messages: list[dict]) -> dict:
         "messages": messages,
         "response_format": {"type": "json_object"},
         "temperature": 0.7,
-        "max_tokens": 6000,
+        "max_tokens": 4500,
     }
     headers = {
         "Authorization": f"Bearer {api_key}",
