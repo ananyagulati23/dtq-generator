@@ -30,14 +30,54 @@ FONT_OPTIONS = {
 }
 
 DEFAULT_STYLE = {
-    "logo_px": 160,
+    "logo_px": 150,
     "bg_color": "#0e1b3d",
     "accent_color": "#FFD23F",
     "heading_font": "sans",
-    "bg_gradient": False,
-    "bg_color2": "#241a3d",
-    "bg_angle": 135,
+    "bg_gradient": True,
+    "bg_color2": "#1a2c5b",
+    "bg_angle": 150,
 }
+
+# Template registry. Each entry powers the form gallery (label/blurb), the
+# main.py field-validation, and the renderer dispatch below.
+TEMPLATES = {
+    "catalogue": {
+        "label": "Catalogue",
+        "blurb": "Curated tools & frameworks, grouped into 4 categories with logos.",
+        "required": ("title", "caption", "hook", "categories"),
+    },
+    "listicle": {
+        "label": "Listicle",
+        "blurb": "Top 5-7 points, big numbers. No logos — pure takeaways.",
+        "required": ("title", "caption", "hook", "points"),
+    },
+    "news": {
+        "label": "News Breakdown",
+        "blurb": "A recent happening: what happened, why it matters, what to watch.",
+        "required": ("title", "caption", "hook", "blocks"),
+    },
+    "stat": {
+        "label": "Big Stat",
+        "blurb": "One giant statistic with its source and supporting context.",
+        "required": ("title", "caption", "stat_value"),
+    },
+    "quote": {
+        "label": "Quote / Hot Take",
+        "blurb": "A single bold point of view, set large, with one supporting line.",
+        "required": ("title", "caption", "quote"),
+    },
+    "framework": {
+        "label": "Framework",
+        "blurb": "A numbered, step-by-step playbook the reader follows in order.",
+        "required": ("title", "caption", "hook", "steps"),
+    },
+}
+DEFAULT_TEMPLATE = "catalogue"
+
+
+def template_required(template: str | None) -> tuple:
+    return TEMPLATES.get((template or DEFAULT_TEMPLATE), TEMPLATES[DEFAULT_TEMPLATE])["required"]
 
 
 def _logo_data_uri() -> str | None:
@@ -52,20 +92,18 @@ def _logo_data_uri() -> str | None:
     return _logo_cache
 
 
-def _wrap_highlight(hook: str, highlight: str) -> str:
-    safe_hook = html.escape(hook or "")
+def _hl(text: str, highlight: str) -> str:
+    """Escape text and wrap the first verbatim occurrence of `highlight` in an
+    accent-coloured span."""
+    safe = html.escape(text or "")
     h = (highlight or "").strip()
     if not h:
-        return safe_hook
+        return safe
     safe_h = html.escape(h)
     pattern = re.compile(re.escape(safe_h), re.IGNORECASE)
-    if not pattern.search(safe_hook):
-        return safe_hook
-    return pattern.sub(
-        '<span style="color:var(--accent)">' + safe_h + "</span>",
-        safe_hook,
-        count=1,
-    )
+    if not pattern.search(safe):
+        return safe
+    return pattern.sub('<span style="color:var(--accent)">' + safe_h + "</span>", safe, count=1)
 
 
 def _safe_color(value: str | None, fallback: str) -> str:
@@ -113,9 +151,28 @@ def _badge_html(item: dict) -> str:
     )
 
 
-def _render_categories(categories: list[dict]) -> str:
+# ---------------------------------------------------------------------------
+# Per-template renderers. Each returns the inner content of the .card (the shell
+# adds the background blobs, the logo, and the footer).
+# ---------------------------------------------------------------------------
+
+def _header_block(data: dict, hook_size: int = 50, hl_field: str = "hook") -> str:
+    """Eyebrow-free hook + subtitle header used by list-style templates."""
+    hook_text = data.get("hook", "")
+    hook = _hl(hook_text, data.get("highlight", "")) if hl_field == "hook" else html.escape(hook_text)
+    subtitle = html.escape((data.get("subtitle") or "").strip())
+    sub_html = f'<div class="subtitle">{subtitle}</div>' if subtitle else ""
+    return (
+        f'<div class="head">'
+        f'<div class="hook" style="font-size:{hook_size}px;">{hook}</div>'
+        f'{sub_html}'
+        f'</div>'
+    )
+
+
+def _render_catalogue(data: dict) -> str:
     blocks = []
-    for cat in categories or []:
+    for cat in data.get("categories") or []:
         name = html.escape((cat.get("name") or "").strip())
         items_html = []
         for item in cat.get("items") or []:
@@ -146,8 +203,145 @@ def _render_categories(categories: list[dict]) -> str:
             f'</ul>'
             f'</div>'
         )
-    return "".join(blocks)
+    categories_html = "".join(blocks)
+    return (
+        _header_block(data, hook_size=56)
+        + f'<div class="grid">{categories_html}</div>'
+    )
 
+
+def _render_listicle(data: dict) -> str:
+    points = [p for p in (data.get("points") or []) if (p.get("title") or "").strip()]
+    points = points[:7]
+    rows = []
+    for i, p in enumerate(points, start=1):
+        t = html.escape((p.get("title") or "").strip())
+        d = html.escape((p.get("detail") or "").strip())
+        detail_html = f'<div class="row-detail">{d}</div>' if d else ""
+        rows.append(
+            f'<div class="glass row">'
+            f'<div class="numchip">{i:02d}</div>'
+            f'<div class="row-text"><div class="row-title">{t}</div>{detail_html}</div>'
+            f'</div>'
+        )
+    return _header_block(data, hook_size=46) + f'<div class="stack">{"".join(rows)}</div>'
+
+
+def _render_framework(data: dict) -> str:
+    steps = [s for s in (data.get("steps") or []) if (s.get("title") or "").strip()]
+    steps = steps[:6]
+    rows = []
+    for i, s in enumerate(steps, start=1):
+        t = html.escape((s.get("title") or "").strip())
+        d = html.escape((s.get("detail") or "").strip())
+        detail_html = f'<div class="row-detail">{d}</div>' if d else ""
+        connector = '<div class="connector"></div>' if i < len(steps) else ""
+        rows.append(
+            f'<div class="glass row step">'
+            f'<div class="step-rail"><div class="numchip">{i}</div>{connector}</div>'
+            f'<div class="row-text"><div class="row-eyebrow">STEP {i}</div>'
+            f'<div class="row-title">{t}</div>{detail_html}</div>'
+            f'</div>'
+        )
+    return _header_block(data, hook_size=46) + f'<div class="stack">{"".join(rows)}</div>'
+
+
+def _render_news(data: dict) -> str:
+    eyebrow = html.escape((data.get("eyebrow") or "UPDATE").strip().upper())
+    hook = _hl(data.get("hook", ""), data.get("highlight", ""))
+    subtitle = html.escape((data.get("subtitle") or "").strip())
+    sub_html = f'<div class="subtitle">{subtitle}</div>' if subtitle else ""
+    blocks = []
+    for b in (data.get("blocks") or [])[:4]:
+        label = html.escape((b.get("label") or "").strip())
+        text = html.escape((b.get("text") or "").strip())
+        if not text:
+            continue
+        blocks.append(
+            f'<div class="glass news-block">'
+            f'<div class="news-label">{label}</div>'
+            f'<div class="news-text">{text}</div>'
+            f'</div>'
+        )
+    head = (
+        f'<div class="head">'
+        f'<div class="eyebrow"><span class="dot"></span>{eyebrow}</div>'
+        f'<div class="hook" style="font-size:52px;">{hook}</div>'
+        f'{sub_html}'
+        f'</div>'
+    )
+    return head + f'<div class="stack">{"".join(blocks)}</div>'
+
+
+def _render_stat(data: dict) -> str:
+    eyebrow = html.escape((data.get("hook") or "").strip().upper())
+    value = html.escape((data.get("stat_value") or "").strip())
+    label = html.escape((data.get("stat_label") or "").strip())
+    source = html.escape((data.get("stat_source") or "").strip())
+    subtitle = html.escape((data.get("subtitle") or "").strip())
+    ctx = [html.escape((c or "").strip()) for c in (data.get("context") or []) if (c or "").strip()][:4]
+    eyebrow_html = f'<div class="eyebrow">{eyebrow}</div>' if eyebrow else ""
+    source_html = f'<div class="stat-source">{source}</div>' if source else ""
+    sub_html = f'<div class="subtitle" style="text-align:center;">{subtitle}</div>' if subtitle else ""
+    ctx_html = ""
+    if ctx:
+        chips = "".join(f'<div class="glass ctx-chip">{c}</div>' for c in ctx)
+        ctx_html = f'<div class="ctx-wrap">{chips}</div>'
+    return (
+        f'<div class="stat-wrap">'
+        f'<div class="stat-deco">{value}</div>'
+        f'<div class="stat-main">'
+        f'{eyebrow_html}'
+        f'<div class="stat-value">{value}</div>'
+        f'<div class="stat-line"></div>'
+        f'<div class="stat-label">{label}</div>'
+        f'{source_html}'
+        f'{sub_html}'
+        f'</div>'
+        f'{ctx_html}'
+        f'</div>'
+    )
+
+
+def _render_quote(data: dict) -> str:
+    kicker = html.escape((data.get("hook") or "").strip().upper())
+    quote = _hl(data.get("quote", ""), data.get("highlight", ""))
+    attribution = html.escape((data.get("attribution") or "DTQ").strip())
+    support = html.escape((data.get("support") or "").strip())
+    kicker_html = f'<div class="eyebrow">{kicker}</div>' if kicker else ""
+    support_html = f'<div class="quote-support">{support}</div>' if support else ""
+    return (
+        f'<div class="quote-wrap">'
+        f'<div class="quote-deco">&rdquo;</div>'
+        f'<div class="quote-top">'
+        f'{kicker_html}'
+        f'<div class="quote-mark">&ldquo;</div>'
+        f'</div>'
+        f'<div class="quote-row">'
+        f'<div class="quote-rule"></div>'
+        f'<div class="quote-text">{quote}<span class="quote-close">&rdquo;</span></div>'
+        f'</div>'
+        f'<div class="quote-foot">'
+        f'<span class="quote-dash"></span>'
+        f'<div class="quote-byline"><div class="quote-attr">{attribution}</div>{support_html}</div>'
+        f'</div>'
+        f'</div>'
+    )
+
+
+_RENDERERS = {
+    "catalogue": _render_catalogue,
+    "listicle": _render_listicle,
+    "news": _render_news,
+    "stat": _render_stat,
+    "quote": _render_quote,
+    "framework": _render_framework,
+}
+
+
+# ---------------------------------------------------------------------------
+# Shell: logo, background blobs, footer, stylesheet.
+# ---------------------------------------------------------------------------
 
 _LOGO_DRAG_SCRIPT = """
 <script>
@@ -201,7 +395,7 @@ def _render_logo(logo_px: int, logo_x, logo_y, editable: bool) -> str:
     if logo_x is not None and logo_y is not None:
         pos = f"left:{logo_x}px;top:{logo_y}px;"
     else:
-        pos = "right:70px;top:64px;"
+        pos = "right:70px;top:60px;"
 
     handle = ""
     cursor = ""
@@ -214,8 +408,25 @@ def _render_logo(logo_px: int, logo_x, logo_y, editable: bool) -> str:
         )
 
     return (
-        f'<div id="dtq-logo-box" style="position:absolute;{pos}{cursor}z-index:10;">'
+        f'<div id="dtq-logo-box" style="position:absolute;{pos}{cursor}z-index:20;">'
         f'{inner}{handle}</div>'
+    )
+
+
+def _render_blobs(accent: str, bg2: str) -> str:
+    return (
+        f'<div class="blob" style="background:{accent};top:-200px;right:-140px;"></div>'
+        f'<div class="blob" style="background:{bg2};bottom:-240px;left:-180px;"></div>'
+        f'<div class="blob blob-sm" style="background:{accent};bottom:80px;right:-120px;"></div>'
+    )
+
+
+def _render_footer() -> str:
+    return (
+        '<div class="footer">'
+        '<span class="footer-dot"></span>'
+        '<span class="footer-text">Data Trust Quotients</span>'
+        '</div>'
     )
 
 
@@ -250,6 +461,172 @@ def _merge_style(style: dict | None) -> dict:
     }
 
 
+def _stylesheet(accent: str, font_family: str, bg_css: str, topbar_h: int) -> str:
+    return f"""
+  :root {{
+    --accent: {accent};
+    --heading-font: {font_family};
+  }}
+  * {{ box-sizing: border-box; }}
+  html, body {{ margin: 0; padding: 0; }}
+  body {{
+    width: 1080px; height: 1080px;
+    background: {bg_css};
+    color: {WHITE};
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }}
+  .card {{
+    width: 1080px; height: 1080px;
+    padding: 60px 70px 52px 70px;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }}
+  .card > * {{ position: relative; z-index: 1; }}
+  #dtq-logo-box {{ z-index: 20; }}
+
+  /* Background blobs ("clouds") */
+  .blob {{
+    position: absolute; width: 560px; height: 560px; border-radius: 50%;
+    filter: blur(130px); opacity: 0.30; z-index: 0; pointer-events: none;
+  }}
+  .blob-sm {{ width: 360px; height: 360px; filter: blur(110px); opacity: 0.22; }}
+
+  .topbar {{ min-height: {topbar_h}px; flex: 0 0 auto; }}
+
+  /* Shared header */
+  .head {{ flex: 0 0 auto; margin-bottom: 26px; }}
+  .eyebrow {{
+    display: inline-flex; align-items: center; gap: 10px;
+    color: var(--accent); font-family: var(--heading-font);
+    font-size: 22px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; margin-bottom: 16px;
+  }}
+  .eyebrow .dot {{
+    width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 5px rgba(255,210,63,0.18);
+  }}
+  .hook {{
+    color: {WHITE}; font-family: var(--heading-font);
+    font-weight: 800; line-height: 1.06; letter-spacing: -0.5px;
+  }}
+  .subtitle {{
+    color: var(--accent); font-family: var(--heading-font);
+    font-size: 23px; font-weight: 600; margin-top: 16px; letter-spacing: 0.3px;
+  }}
+
+  /* Catalogue grid (legacy layout) */
+  .grid {{ column-count: 2; column-gap: 48px; flex: 1; }}
+
+  /* Glass containers ("cloud cards") */
+  .glass {{
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 24px;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.20);
+  }}
+
+  /* Vertical stack used by listicle / framework / news */
+  .stack {{ flex: 1; display: flex; flex-direction: column; gap: 16px; min-height: 0; }}
+  .row {{
+    flex: 1 1 0; min-height: 0; overflow: hidden;
+    display: flex; align-items: center; gap: 26px; padding: 18px 28px;
+  }}
+  .numchip {{
+    flex: 0 0 auto; width: 70px; height: 70px; border-radius: 18px;
+    background: var(--accent); color: #0e1b3d;
+    font-family: var(--heading-font); font-weight: 800; font-size: 32px;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }}
+  .row-text {{ flex: 1; min-width: 0; }}
+  .row-eyebrow {{
+    color: var(--accent); font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px;
+  }}
+  .row-title {{
+    color: {WHITE}; font-family: var(--heading-font);
+    font-weight: 700; font-size: 28px; line-height: 1.18;
+  }}
+  .row-detail {{ color: {MUTED}; font-size: 18px; line-height: 1.4; margin-top: 6px; }}
+
+  /* Framework step rail with connector */
+  .step {{ align-items: stretch; }}
+  .step-rail {{ display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; }}
+  .step-rail .numchip {{ width: 58px; height: 58px; border-radius: 50%; font-size: 26px; }}
+  .connector {{ flex: 1; width: 3px; background: rgba(255,255,255,0.18); margin: 8px 0 -28px; }}
+
+  /* News blocks */
+  .news-block {{ padding: 20px 28px; flex: 1 1 0; min-height: 0; overflow: hidden; }}
+  .news-label {{
+    color: var(--accent); font-family: var(--heading-font);
+    font-size: 18px; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase; margin-bottom: 8px;
+  }}
+  .news-text {{ color: {WHITE}; font-size: 22px; line-height: 1.4; font-weight: 400; }}
+
+  /* Big-stat layout */
+  .stat-wrap {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; position: relative; padding: 40px 0 10px; }}
+  .stat-deco {{
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -58%);
+    font-family: var(--heading-font); font-weight: 800; font-size: 540px; line-height: 1;
+    color: var(--accent); opacity: 0.05; z-index: 0; pointer-events: none; white-space: nowrap;
+  }}
+  .stat-main {{ display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: center; }}
+  .stat-value {{
+    color: var(--accent); font-family: var(--heading-font);
+    font-weight: 800; font-size: 240px; line-height: 0.95; letter-spacing: -3px;
+  }}
+  .stat-line {{ width: 90px; height: 6px; background: var(--accent); border-radius: 3px; margin: 28px 0 24px; }}
+  .stat-label {{ color: {WHITE}; font-size: 36px; font-weight: 700; line-height: 1.2; max-width: 820px; }}
+  .stat-source {{ color: {MUTED}; font-size: 18px; margin-top: 16px; letter-spacing: 1px; text-transform: uppercase; }}
+  .ctx-wrap {{ display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 940px; flex: 0 0 auto; }}
+  .ctx-chip {{
+    display: flex; align-items: center; gap: 12px; padding: 16px 24px;
+    color: {WHITE}; font-size: 18px; font-weight: 500; text-align: left;
+  }}
+  .ctx-chip::before {{
+    content: ""; flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+  }}
+
+  /* Quote layout */
+  .quote-wrap {{ flex: 1; display: flex; flex-direction: column; justify-content: space-between; position: relative; padding: 30px 0 10px; }}
+  .quote-deco {{
+    position: absolute; top: -150px; right: -30px;
+    font-family: Georgia, 'Times New Roman', serif; font-size: 680px; line-height: 1;
+    color: var(--accent); opacity: 0.07; z-index: 0; pointer-events: none;
+  }}
+  .quote-top {{ flex: 0 0 auto; }}
+  .quote-mark {{
+    color: var(--accent); font-family: Georgia, 'Times New Roman', serif;
+    font-size: 180px; line-height: 0.5; height: 84px;
+  }}
+  .quote-row {{ display: flex; gap: 36px; align-items: stretch; flex: 0 1 auto; }}
+  .quote-rule {{ flex: 0 0 6px; background: var(--accent); border-radius: 3px; }}
+  .quote-text {{
+    color: {WHITE}; font-family: var(--heading-font);
+    font-weight: 700; font-size: 64px; line-height: 1.15; letter-spacing: -0.5px;
+  }}
+  .quote-close {{
+    color: var(--accent); font-family: Georgia, 'Times New Roman', serif;
+    font-size: 64px; line-height: 1; margin-left: 4px;
+  }}
+  .quote-foot {{ display: flex; align-items: flex-start; gap: 20px; }}
+  .quote-dash {{ flex: 0 0 50px; height: 4px; background: var(--accent); margin-top: 18px; border-radius: 2px; }}
+  .quote-attr {{ color: var(--accent); font-size: 26px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }}
+  .quote-support {{ color: {MUTED}; font-size: 22px; line-height: 1.45; margin-top: 8px; max-width: 760px; }}
+
+  /* Footer */
+  .footer {{
+    flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+    margin-top: 22px; padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+  }}
+  .footer-dot {{ width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }}
+  .footer-text {{ color: {MUTED}; font-size: 16px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }}
+"""
+
+
 def build_card_html(data: dict, style: dict | None = None, editable: bool = False) -> str:
     s = _merge_style(style)
     accent = s["accent_color"]
@@ -261,10 +638,15 @@ def build_card_html(data: dict, style: dict | None = None, editable: bool = Fals
     else:
         bg_css = s["bg_color"]
 
-    hook = _wrap_highlight(data.get("hook", ""), data.get("highlight", ""))
-    subtitle = html.escape((data.get("subtitle") or "").strip())
-    categories_html = _render_categories(data.get("categories") or [])
+    template = (data.get("template") or DEFAULT_TEMPLATE)
+    if template not in _RENDERERS:
+        template = DEFAULT_TEMPLATE
+    renderer = _RENDERERS[template]
+    content_html = renderer(data)
+
     logo_html = _render_logo(logo_px, s["logo_x"], s["logo_y"], editable)
+    blobs_html = _render_blobs(accent, s["bg_color2"])
+    footer_html = _render_footer()
     drag_script = _LOGO_DRAG_SCRIPT if editable else ""
     topbar_h = logo_px if (s["logo_x"] is None and s["logo_y"] is None) else 40
 
@@ -279,64 +661,15 @@ def build_card_html(data: dict, style: dict | None = None, editable: bool = Fals
 <head>
 <meta charset="utf-8">
 {google_links}
-<style>
-  :root {{
-    --accent: {accent};
-    --heading-font: {font['family']};
-  }}
-  * {{ box-sizing: border-box; }}
-  html, body {{ margin: 0; padding: 0; }}
-  body {{
-    width: 1080px;
-    height: 1080px;
-    background: {bg_css};
-    color: {WHITE};
-    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }}
-  .card {{
-    width: 1080px;
-    height: 1080px;
-    padding: 64px 70px 64px 70px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }}
-  .topbar {{
-    min-height: {topbar_h}px;
-  }}
-  .hook {{
-    color: {WHITE};
-    font-family: var(--heading-font);
-    font-size: 56px;
-    font-weight: 800;
-    line-height: 1.08;
-    margin-top: 8px;
-    letter-spacing: -0.5px;
-  }}
-  .subtitle {{
-    color: var(--accent);
-    font-family: var(--heading-font);
-    font-size: 22px;
-    font-weight: 600;
-    margin-top: 16px;
-    margin-bottom: 30px;
-    letter-spacing: 0.3px;
-  }}
-  .grid {{
-    column-count: 2;
-    column-gap: 48px;
-    flex: 1;
-  }}
-</style>
+<style>{_stylesheet(accent, font['family'], bg_css, topbar_h)}</style>
 </head>
 <body>
   <div class="card">
+    {blobs_html}
     {logo_html}
     <div class="topbar"></div>
-    <div class="hook">{hook}</div>
-    <div class="subtitle">{subtitle}</div>
-    <div class="grid">{categories_html}</div>
+    {content_html}
+    {footer_html}
   </div>
   {drag_script}
 </body>

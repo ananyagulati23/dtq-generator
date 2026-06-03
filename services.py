@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -10,67 +11,155 @@ AIRTABLE_URL = "https://api.airtable.com/v0/{base}/{table}"
 
 DEFAULT_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 
+# Free-tier TPM is tight (~12k/min). A 429 reports how long until the window
+# clears; wait it out rather than failing (a slow success beats an error). Cap
+# the wait so a request can't hang indefinitely.
+MAX_RATE_LIMIT_WAIT = 45.0
+
 
 class ServiceError(Exception):
     pass
 
 
-async def call_groq(messages: list[dict]) -> dict:
+def _loads_lenient(text: str | None):
+    """Parse JSON from a model response, tolerating code fences, leading/trailing
+    prose, and truncated output (close any unterminated string/brackets). Returns
+    the parsed dict, or None if nothing salvageable."""
+    if not text:
+        return None
+    s = text.strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:json)?\s*", "", s)
+        s = re.sub(r"\s*```$", "", s).strip()
+
+    # Isolate the first JSON object.
+    start = s.find("{")
+    if start == -1:
+        return None
+    s = s[start:]
+
+    # Walk the text tracking string/bracket state. Record where the first
+    # top-level object closes (to drop trailing prose); if it never closes the
+    # output was truncated, so close the open string/brackets ourselves.
+    stack = []
+    in_str = False
+    escaped = False
+    end = None
+    for i, ch in enumerate(s):
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+            if not stack:
+                end = i + 1
+                break
+
+    if end is not None:
+        try:
+            return json.loads(s[:end])
+        except json.JSONDecodeError:
+            return None
+
+    repaired = s.rstrip().rstrip(",")
+    if in_str:
+        repaired += '"'
+    for opener in reversed(stack):
+        repaired += "}" if opener == "{" else "]"
+
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError:
+        return None
+
+
+async def call_groq(messages: list[dict], max_tokens: int = 4500) -> dict:
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise ServiceError("GROQ_API_KEY not set")
 
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages,
-        "response_format": {"type": "json_object"},
-        "temperature": 0.7,
-        "max_tokens": 4500,
-    }
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
-    # Groq's JSON mode occasionally returns invalid/incomplete JSON (or wraps it
-    # in code fences). It's stochastic, so retry once before giving up.
-    for attempt in range(2):
+    # Groq's JSON mode is stochastic and the free tier rate-limits aggressively.
+    # Retry up to 3 times: wait out 429s, salvage near-valid JSON, and give the
+    # model more room (higher max_tokens) if it ran out mid-document.
+    tokens = max_tokens
+    last_err = "unknown error"
+    for attempt in range(3):
+        payload = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+            "temperature": 0.6,
+            "max_tokens": tokens,
+        }
         async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             resp = await client.post(GROQ_URL, json=payload, headers=headers)
 
         if resp.status_code == 429:
             m = re.search(r"try again in ([\d.]+)s", resp.text)
-            wait_hint = f" Try again in ~{m.group(1)}s." if m else ""
-            raise ServiceError(f"Groq rate limit hit (free-tier TPM cap).{wait_hint}")
+            wait = float(m.group(1)) if m else 5.0
+            if attempt < 2 and wait <= MAX_RATE_LIMIT_WAIT:
+                await asyncio.sleep(wait + 0.5)
+                continue
+            hint = f" Try again in ~{m.group(1)}s." if m else ""
+            raise ServiceError(f"Groq rate limit hit (free-tier TPM cap).{hint}")
+
         if resp.status_code == 400 and "json_validate_failed" in resp.text:
-            if attempt == 0:
+            # Groq returns the partial output in error.failed_generation — try to
+            # salvage it before giving up.
+            try:
+                fg = resp.json().get("error", {}).get("failed_generation")
+            except Exception:
+                fg = None
+            salvaged = _loads_lenient(fg)
+            if salvaged:
+                return salvaged
+            last_err = "model produced invalid JSON"
+            if attempt < 2:
+                tokens = min(tokens + 2000, 8000)  # likely truncated — give more room
                 continue
             raise ServiceError(
-                "The AI returned invalid JSON twice in a row. Please try again "
+                "The AI returned invalid JSON repeatedly. Please try again "
                 "(a more specific topic usually helps)."
             )
+
         if resp.status_code >= 400:
             raise ServiceError(f"Groq error {resp.status_code}: {resp.text}")
 
         body = resp.json()
         try:
-            content = body["choices"][0]["message"]["content"]
+            choice = body["choices"][0]
+            content = choice["message"]["content"]
         except (KeyError, IndexError) as e:
             raise ServiceError(f"Unexpected Groq response shape: {body}") from e
 
-        content = content.strip()
-        if content.startswith("```"):
-            content = re.sub(r"^```(?:json)?\s*", "", content)
-            content = re.sub(r"\s*```$", "", content).strip()
+        parsed = _loads_lenient(content)
+        if parsed is not None:
+            return parsed
 
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            if attempt == 0:
-                continue
-            raise ServiceError(f"Groq returned non-JSON content: {content[:500]}")
+        last_err = "non-JSON content"
+        if attempt < 2:
+            # finish_reason 'length' means it was cut off; otherwise just stochastic.
+            if choice.get("finish_reason") == "length":
+                tokens = min(tokens + 2000, 8000)
+            continue
+        raise ServiceError(f"Groq returned unparseable content ({last_err}).")
 
-    raise ServiceError("Groq did not return valid JSON. Please try again.")
+    raise ServiceError(f"Groq did not return valid JSON ({last_err}). Please try again.")
 
 
 async def call_hcti(html: str) -> str:

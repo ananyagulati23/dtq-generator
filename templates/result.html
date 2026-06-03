@@ -429,7 +429,9 @@
     const STATE = {
       topic: {{ topic|tojson if topic is defined else '""' }},
       custom_instructions: {{ custom_instructions|tojson if custom_instructions is defined else '""' }},
-      tone: {{ tone|tojson if tone is defined else '"default"' }}
+      tone: {{ tone|tojson if tone is defined else '"default"' }},
+      template: {{ template|tojson if template is defined else '"catalogue"' }},
+      source_text: {{ source_text|tojson if source_text is defined else '""' }}
     };
     let CARD_DATA = {{ card_data|tojson if card_data else 'null' }};
 
@@ -561,7 +563,9 @@
             record_id: RECORD_ID,
             topic: STATE.topic,
             custom_instructions: STATE.custom_instructions,
-            tone: STATE.tone
+            tone: STATE.tone,
+            template: STATE.template,
+            source_text: STATE.source_text
           })
         });
         const data = await r.json();

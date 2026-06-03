@@ -12,6 +12,9 @@
       --text: #0a0a0a;
       --muted: #6b7280;
       --accent: #0e1b3d;
+      --navy: #0e1b3d;
+      --navy2: #1a2c5b;
+      --yellow: #FFD23F;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
@@ -33,7 +36,7 @@
     }
     .card {
       width: 100%;
-      max-width: 560px;
+      max-width: 720px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -82,7 +85,8 @@
     input[type=text]::placeholder, textarea::placeholder { color: #9ca3af; }
     input[type=text]:focus, textarea:focus, select:focus { border-color: var(--accent); }
     textarea { min-height: 100px; resize: vertical; }
-    .field { margin-bottom: 20px; }
+    .field { margin-bottom: 24px; }
+    .hint { font-size: 12px; color: var(--muted); margin: -2px 0 10px; line-height: 1.5; }
     .note {
       font-size: 12px;
       color: var(--muted);
@@ -104,21 +108,171 @@
     }
     button:hover { opacity: 0.9; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Template gallery */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 560px) { .gallery { grid-template-columns: repeat(2, 1fr); } }
+    .tpl {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      cursor: pointer;
+      transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+      background: #fff;
+      position: relative;
+    }
+    .tpl:hover { border-color: #c3c9d4; transform: translateY(-1px); }
+    .tpl.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(14,27,61,0.12);
+    }
+    .tpl input { position: absolute; opacity: 0; pointer-events: none; }
+    .tpl-check {
+      position: absolute; top: 8px; right: 8px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--accent); color: #fff; font-size: 11px; line-height: 18px;
+      text-align: center; display: none;
+    }
+    .tpl.selected .tpl-check { display: block; }
+    .tpl-name { font-size: 13px; font-weight: 700; margin-top: 8px; color: var(--text); }
+    .tpl-blurb { font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 3px; }
+
+    /* Mini mockup thumbnail */
+    .thumb {
+      height: 96px; border-radius: 7px; overflow: hidden;
+      background: linear-gradient(150deg, var(--navy), var(--navy2));
+      padding: 10px; position: relative;
+    }
+    .thumb .glow {
+      position: absolute; width: 70px; height: 70px; border-radius: 50%;
+      background: var(--yellow); filter: blur(22px); opacity: 0.25;
+      top: -20px; right: -16px;
+    }
+    .thumb .bar { background: rgba(255,255,255,0.85); border-radius: 2px; height: 5px; }
+    .thumb .bar.acc { background: var(--yellow); }
+    .thumb .bar.dim { background: rgba(255,255,255,0.30); }
+    .mk { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }
+
+    /* listicle / framework rows */
+    .mk-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .mk-num {
+      width: 16px; height: 16px; border-radius: 5px; background: var(--yellow);
+      color: var(--navy); font-size: 9px; font-weight: 800; line-height: 16px; text-align: center;
+      flex: 0 0 auto;
+    }
+    .mk-num.circ { border-radius: 50%; }
+    .mk-lines { flex: 1; }
+    .mk-lines .bar { margin-bottom: 3px; }
+
+    /* catalogue grid */
+    .mk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+    .mk-cell { display: flex; align-items: center; gap: 4px; }
+    .mk-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--yellow); flex: 0 0 auto; }
+
+    /* stat */
+    .mk-stat { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .mk-stat .big { color: var(--yellow); font-weight: 800; font-size: 30px; line-height: 1; }
+
+    /* quote */
+    .mk-quote .qm { color: var(--yellow); font-family: Georgia, serif; font-size: 40px; line-height: 0.7; height: 22px; }
+
+    .mk-tag {
+      display: inline-block; background: var(--yellow); color: var(--navy);
+      font-size: 8px; font-weight: 800; letter-spacing: 1px; padding: 2px 6px;
+      border-radius: 4px; margin-bottom: 8px; align-self: flex-start;
+    }
+    .mk-block { background: rgba(255,255,255,0.10); border-radius: 4px; padding: 4px 5px; margin-bottom: 5px; }
   </style>
 </head>
 <body>
   <div class="wordmark">DTQ</div>
   <form class="card" method="post" action="/generate" onsubmit="document.getElementById('btn').innerText='Generating…';document.getElementById('btn').disabled=true;">
     <h1>LinkedIn Content Generator</h1>
-    <p class="lede">Generate a LinkedIn post and an infographic card for Data Trust Quotients.</p>
+    <p class="lede">Generate a LinkedIn post and a matching card for Data Trust Quotients. Pick a template, set the topic, and your custom instructions are always honoured.</p>
+
+    <div class="field">
+      <label>Template</label>
+      <div class="hint">Choose the style of card. Each one looks and reads differently.</div>
+      <div class="gallery" id="gallery">
+        {% for tid, tlabel, tblurb in templates_list %}
+        <label class="tpl{% if loop.first %} selected{% endif %}" data-tpl="{{ tid }}">
+          <input type="radio" name="template" value="{{ tid }}" {% if loop.first %}checked{% endif %} />
+          <span class="tpl-check">✓</span>
+          <div class="thumb">
+            <div class="glow"></div>
+            {% if tid == 'catalogue' %}
+            <div class="mk">
+              <div class="bar acc" style="width:60%;margin-bottom:4px;"></div>
+              <div class="bar dim" style="width:40%;"></div>
+              <div class="mk-grid">
+                <div class="mk-cell"><span class="mk-dot"></span><div class="mk-lines"><div class="bar" style="width:90%"></div><div class="bar dim" style="width:60%"></div></div></div>
+                <div class="mk-cell"><span class="mk-dot"></span><div class="mk-lines"><div class="bar" style="width:80%"></div><div class="bar dim" style="width:55%"></div></div></div>
+                <div class="mk-cell"><span class="mk-dot"></span><div class="mk-lines"><div class="bar" style="width:85%"></div><div class="bar dim" style="width:50%"></div></div></div>
+                <div class="mk-cell"><span class="mk-dot"></span><div class="mk-lines"><div class="bar" style="width:75%"></div><div class="bar dim" style="width:65%"></div></div></div>
+              </div>
+            </div>
+            {% elif tid == 'listicle' %}
+            <div class="mk">
+              <div class="bar acc" style="width:55%;margin-bottom:8px;"></div>
+              <div class="mk-row"><span class="mk-num">1</span><div class="mk-lines"><div class="bar" style="width:90%"></div><div class="bar dim" style="width:70%"></div></div></div>
+              <div class="mk-row"><span class="mk-num">2</span><div class="mk-lines"><div class="bar" style="width:80%"></div><div class="bar dim" style="width:60%"></div></div></div>
+              <div class="mk-row" style="margin-bottom:0;"><span class="mk-num">3</span><div class="mk-lines"><div class="bar" style="width:85%"></div><div class="bar dim" style="width:65%"></div></div></div>
+            </div>
+            {% elif tid == 'news' %}
+            <div class="mk">
+              <span class="mk-tag">REGULATION</span>
+              <div class="bar acc" style="width:70%;margin-bottom:8px;"></div>
+              <div class="mk-block"><div class="bar" style="width:40%;margin-bottom:3px;"></div><div class="bar dim" style="width:90%"></div></div>
+              <div class="mk-block" style="margin-bottom:0;"><div class="bar" style="width:35%;margin-bottom:3px;"></div><div class="bar dim" style="width:85%"></div></div>
+            </div>
+            {% elif tid == 'stat' %}
+            <div class="mk">
+              <div class="bar acc" style="width:40%;align-self:center;"></div>
+              <div class="mk-stat"><div class="big">68%</div><div class="bar dim" style="width:60%;margin-top:6px;"></div></div>
+            </div>
+            {% elif tid == 'quote' %}
+            <div class="mk mk-quote">
+              <div class="qm">&ldquo;</div>
+              <div class="bar" style="width:90%;height:7px;margin-bottom:5px;"></div>
+              <div class="bar" style="width:75%;height:7px;margin-bottom:5px;"></div>
+              <div class="bar acc" style="width:35%;margin-top:auto;"></div>
+            </div>
+            {% elif tid == 'framework' %}
+            <div class="mk">
+              <div class="bar acc" style="width:60%;margin-bottom:8px;"></div>
+              <div class="mk-row"><span class="mk-num circ">1</span><div class="mk-lines"><div class="bar" style="width:85%"></div></div></div>
+              <div class="mk-row"><span class="mk-num circ">2</span><div class="mk-lines"><div class="bar" style="width:75%"></div></div></div>
+              <div class="mk-row" style="margin-bottom:0;"><span class="mk-num circ">3</span><div class="mk-lines"><div class="bar" style="width:80%"></div></div></div>
+            </div>
+            {% else %}
+            <div class="mk"><div class="bar acc" style="width:60%"></div></div>
+            {% endif %}
+          </div>
+          <div class="tpl-name">{{ tlabel }}</div>
+          <div class="tpl-blurb">{{ tblurb }}</div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
 
     <div class="field">
       <label for="topic">Topic</label>
       <input type="text" id="topic" name="topic" placeholder="Leave blank to auto-pick a topic" />
     </div>
 
+    <div class="field" id="source-field" style="display:none;">
+      <label for="source_text">Paste the source / article</label>
+      <div class="hint">For News Breakdown: paste the announcement, article, or release text. The card and post will be built <strong>only</strong> from this, so nothing gets invented. Leave blank to let the AI write from its own knowledge (verify before posting).</div>
+      <textarea id="source_text" name="source_text" placeholder="Paste the news text or source here…"></textarea>
+    </div>
+
     <div class="field">
       <label for="custom_instructions">Custom instructions</label>
+      <div class="hint">Always applied, and they take precedence over the template defaults (e.g. “make it 5 points”, “focus on healthcare”, “avoid vendor names”).</div>
       <textarea id="custom_instructions" name="custom_instructions" placeholder="Optional: angle, audience focus, things to emphasize or avoid"></textarea>
     </div>
 
@@ -145,5 +299,27 @@
 
     <button id="btn" type="submit">Generate post</button>
   </form>
+
+  <script>
+    (function () {
+      const gallery = document.getElementById('gallery');
+      const sourceField = document.getElementById('source-field');
+      function refresh() {
+        const sel = gallery.querySelector('input[name="template"]:checked');
+        const tid = sel ? sel.value : 'catalogue';
+        sourceField.style.display = (tid === 'news') ? '' : 'none';
+      }
+      gallery.querySelectorAll('.tpl').forEach((tile) => {
+        tile.addEventListener('click', () => {
+          gallery.querySelectorAll('.tpl').forEach((t) => t.classList.remove('selected'));
+          tile.classList.add('selected');
+          const radio = tile.querySelector('input');
+          radio.checked = true;
+          refresh();
+        });
+      });
+      refresh();
+    })();
+  </script>
 </body>
 </html>

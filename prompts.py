@@ -49,12 +49,16 @@ ICON_OPTIONS = [
     "audit", "network", "alert",
 ]
 
+# Canonical template ids. Keep in sync with card.py TEMPLATES and form.html gallery.
+TEMPLATE_IDS = ["catalogue", "listicle", "news", "stat", "quote", "framework"]
+DEFAULT_TEMPLATE = "catalogue"
+
 TONE_PRESETS = {
     "default": "",
     "punchy": "TONE OVERRIDE: punchy and opinionated. Short, declarative sentences. No filler. Hook is one line, blunt.",
     "thoughtful": "TONE OVERRIDE: thoughtful and exploratory. Show nuance and second-order effects. Avoid hot takes. Let the reader sit with a tension.",
     "question-led": "TONE OVERRIDE: question-led. Open with a question that names a real tension, and close with a different question that invites reply.",
-    "data-led": "TONE OVERRIDE: data-led. Anchor the caption in ONE specific, real, verifiable statistic from a named source (e.g. Verizon DBIR, Gartner, IBM Cost of a Data Breach, ENISA, NIST). If you cannot name a real source, do NOT invent one — use the 'industry pulse' archetype instead.",
+    "data-led": "TONE OVERRIDE: data-led. Anchor the caption in ONE specific, real, verifiable statistic from a named source (e.g. Verizon DBIR, Gartner, IBM Cost of a Data Breach, ENISA, NIST). If you cannot name a real source, do NOT invent one.",
 }
 
 
@@ -62,210 +66,380 @@ def _pick_topic() -> str:
     return random.choice(FALLBACK_TOPICS)
 
 
+# ---------------------------------------------------------------------------
+# Shared building blocks
+# ---------------------------------------------------------------------------
+
+_SYSTEM_CORE = (
+    "You are a senior content strategist writing LinkedIn posts for "
+    "Data Trust Quotients (DTQ). Your audience is CISOs, cybersecurity "
+    "leaders, AI leaders, and data governance executives. Voice is "
+    "confident, factual, plain English, zero hype, zero marketing fluff. "
+    "Never invent tools, vendors, frameworks, regulations, statistics, "
+    "events, dates, or quotes. Every named entity must be a real, verifiable "
+    "thing. If you are not sure something is real, do not include it.\n\n"
+    "HIGHEST PRIORITY: USER CUSTOM INSTRUCTIONS.\n"
+    "If the user supplies custom instructions, they OUTRANK every stylistic and "
+    "structural default in this prompt. If they ask for a different number of "
+    "items, a specific angle, a particular emphasis, things to include or avoid, "
+    "a named entity, a tone, or a wording choice, you MUST honour it. The only "
+    "things custom instructions may NOT override are the accuracy, "
+    "no-fabrication, and no-defamation rules below. When in doubt, do what the "
+    "user asked.\n\n"
+    "UNIVERSAL RELIABILITY RULES (most failures come from breaking these):\n"
+    "1. COHERENCE: the headline, subtitle, and caption must describe what the "
+    "card ACTUALLY contains. A reader who looks at the card must agree the "
+    "headline is literally true. Do not write a claim the card content does not "
+    "substantiate.\n"
+    "2. EXACT REAL NAMES: use the exact product, vendor, framework, standard, "
+    "person, or event name as it really exists. Never bolt a function onto a "
+    "brand to invent a product (e.g. 'Mailchimp Abuse Detection' is not a real "
+    "product). Fewer correct items beats padding with things that do not fit.\n"
+    "3. NO DEFAMATION / NO MISLABELLING: never present a real, legitimate "
+    "company, product, or person as a malicious actor, an attack/hacking tool, "
+    "an illegal service, or as performing a function it does not perform. "
+    "Mainstream AI vendors (OpenAI, Anthropic, Google, Microsoft, Hugging Face, "
+    "Midjourney, etc.) are NOT 'phishing tools', 'hacking tools', or 'attack "
+    "tools'. When a topic is about attacks or misuse, name real attack "
+    "TECHNIQUES and tactics (e.g. spear phishing, credential stuffing, deepfake "
+    "voice cloning, MITRE ATT&CK techniques), NOT legitimate vendor brands "
+    "relabelled as weapons.\n\n" + DTQ_CONTEXT
+)
+
+
+def _caption_rules(card_callback: str) -> str:
+    """Shared LinkedIn caption rules. card_callback describes, in plain words,
+    what the accompanying card/image shows so the post can point at it."""
+    return f"""\
+CAPTION RULES (this is the LinkedIn post body, and it matters as much as the card, so write it with care):
+
+Length and substance (THIS IS THE #1 PRIORITY, short captions are a failure):
+- Write 220 to 320 words. This is a HARD floor of 200 words. A thin, skimpy, one-line-per-idea caption is unacceptable and will be rejected. Count your words before returning; if under 200, KEEP WRITING and add more real substance until you clear 220.
+- The caption must be INFORMATIVE, not just a vibe. The reader should LEARN something concrete. Every paragraph must contain at least one specific, verifiable fact: a named framework, regulation, standard, tool, vendor, agency, or company; a real statistic with its named source; a real recent development; or a concrete worked example.
+- Generic, advice-column sentences are BANNED. Do not write empty sentences like "it is essential to have a robust risk management framework in place" or "organisations must prioritise security" or "this includes conducting regular assessments". Every sentence must say something specific and true that a knowledgeable reader could not have written without knowing the topic. If a sentence would be true of almost any topic, delete it and write a concrete one.
+- REFERENCE THE CARD'S ACTUAL CONTENT: name at least two or three of the specific items, points, categories, or steps that appear on THIS card, and say something real about them. This ties the post to the image and adds genuine substance.
+- Aim for 5 to 7 short paragraphs (1-3 lines each), separated by blank lines. Develop the idea: set up the tension, give real context, explain the mechanism or stakes, walk through a couple of the card's specifics, and close.
+- Tight but full: no repetition and no throat-clearing, but do not be terse. Depth and specificity, not padding.
+
+NO EM-DASHES, EVER (strict, this is the most-broken rule):
+- Do NOT use the em-dash (—), en-dash (–), or horizontal bar (―) anywhere. Not for asides, not for emphasis, not for ranges.
+- Use a comma, period, colon, or semicolon instead. Example of what NOT to do: "Identity is the new perimeter — and most teams ignore it." Write instead: "Identity is the new perimeter, and most teams ignore it."
+
+BANNED PHRASES AND OPENERS (do not use any of these, or close paraphrases, they are tired and overused):
+- "we all know", "let's be honest", "let's face it", "here's the thing", "the truth is", "make no mistake"
+- "it's no longer about X, it's about Y" and any "no longer about ..." construction
+- "in today's world", "now more than ever", "gone are the days", "in an era of"
+- "most CISOs we talk to", "the teams we work with", and any fake first-person-plural anecdote
+- "at the end of the day", "the bottom line is", "buckle up"
+Pick a FRESH, specific opener every time. Good opener styles: a real named-source statistic, a concrete recent development, a precise scenario, a counterintuitive but defensible claim, or a sharp question that names a real tension.
+
+No hype words: "revolutionize", "game-changer", "unlock", "supercharge", "leverage", "next-gen", "cutting-edge", "harness", "empower", "transform", "seamless", "robust".
+
+Emphasis with Unicode (this is how LinkedIn posts get visual weight without markdown):
+- For 2-4 key phrases or whole sentences, use Unicode MATHEMATICAL SANS-SERIF BOLD characters (e.g. 𝗧𝗵𝗶𝘀 𝗶𝘀 𝗯𝗼𝗹𝗱). Use these on the lines that carry the most weight.
+- For 1-2 softer sub-emphases, use Unicode MATHEMATICAL SANS-SERIF ITALIC characters (e.g. 𝘵𝘩𝘪𝘴 𝘪𝘴 𝘪𝘵𝘢𝘭𝘪𝘤).
+- Do NOT bold or italicize every sentence. Most text is plain. Bold/italic are accents only.
+
+Structure (follow this flow, and make the middle SUBSTANTIAL):
+1. OPENER (1-2 sentences, Unicode bold): name a real tension, shift, or misconception using a fresh, specific angle (see banned openers above).
+2. CONTEXT / ANCHOR (2-3 sentences): the informative core. Ground it in a real, verifiable development, regulation, framework, or statistic with a named source. This is where the reader learns something. Do not invent facts; if you cannot anchor to something real, use a concrete, well-established fact about the topic.
+3. WHY IT MATTERS (1-2 sentences): the stakes or the mechanism, in concrete terms.
+4. CALLBACK TO THE CARD: point at the image and name at least two or three of the specific items, points, or categories on THIS card, with a real detail about each. The card shows {card_callback}.
+5. ONE OR TWO ONE-LINE INSIGHTS: short, standalone takeaways. Apply Unicode bold to the punchy half of one.
+6. ENGAGEMENT QUESTION (Unicode bold): a specific closing question inviting replies, optionally followed by one italic line.
+
+Emojis:
+- Optional. AT MOST 2-3 total. Acceptable: ▶ 📌 👀 🤯. Never use emoji bullets or strings of decorative emojis.
+
+Hashtags:
+- The very last line is 5 to 8 hashtags, space-separated, each starting with a single # character. Match them to the topic and audience. Do NOT write the literal word "hashtag" before #.
+
+Reality check:
+- Every named entity (tool, vendor, framework, regulation, event, person, agency, statistic, source) must be REAL and verifiable. If unsure, omit it.
+- Tie the caption substantively to the card so the reader sees the post and the image as one piece."""
+
+
+def _common_keys() -> str:
+    return """\
+  "topic": "string - the topic in 3-8 words",
+  "title": "string - short post title, 4-10 words, used as the Airtable record title",
+  "hook": "string - the card headline / kicker, 5-12 words, punchy, no hype. MUST faithfully describe what the card actually contains. A reader scanning the card must agree the hook is literally accurate.",
+  "highlight": "string - one or two words that appear VERBATIM inside the main display text, to be emphasised in the accent colour on the card",
+  "subtitle": "string - one short line under the hook, 4-10 words. Frames the actual card contents; never introduces a claim the card does not support.",
+  "caption": "string - the full LinkedIn post text, see CAPTION RULES below","""
+
+
+# ---------------------------------------------------------------------------
+# Per-template specs (schema body + structure rules + card callback)
+# ---------------------------------------------------------------------------
+
+def _spec_catalogue() -> dict:
+    schema = f"""{{
+{_common_keys()}
+  "categories": [
+    {{
+      "name": "string - 2-5 words. Category names MUST be derived from the natural cuts WITHIN THIS SPECIFIC TOPIC, not forced into a generic taxonomy. Examples by topic: 'AI image tools' -> ['Foundation Models','Editing Tools','Specialized Generators','Open Source']; 'SEO in 2026' -> ['AI Search Engines','Content Platforms','Technical SEO','Analytics']; 'Cybersecurity stack' -> ['Threat Defence','Identity','Cloud','Resilience']. NEVER default to cybersecurity layers unless the topic is explicitly about cybersecurity. A category name is a PROMISE that EVERY item beneath it is a primary, genuine instance of that exact name.",
+      "items": [
+        {{
+          "title": "string - the exact, real name of the thing AS IT ACTUALLY EXISTS. Do not invent product names by attaching a function to a brand. Must be a primary, genuine instance of THIS category.",
+          "description": "string - 6-15 words, factual, describing what the thing ACTUALLY and PRIMARILY does, consistent with its category.",
+          "icon": "string - one of: {", ".join(ICON_OPTIONS)}",
+          "domain": "string - the brand's primary website domain, lowercase, no protocol/www/path (e.g. 'crowdstrike.com', 'openai.com', 'semrush.com'). For a framework/regulation/standard with no parent company (NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, GDPR), set domain to ''.",
+          "brand_letter": "string - SINGLE uppercase letter, fallback if no logo loads (usually the first letter of the title)",
+          "brand_color": "string - hex color like '#dc1e2c' for the fallback badge background"
+        }}
+      ]
+    }}
+  ]
+}}"""
+    rules = """\
+STRUCTURE RULES (HARD REQUIREMENTS):
+- categories: EXACTLY 4 groups (unless the user's custom instructions ask otherwise).
+- total items across all categories: 16-20 (4-5 per category). COUNT before responding. Never reach the count by padding with items that do not truly belong, by inventing names, or by listing a tool under a function it does not perform.
+- each item.title MUST be a REAL named thing relevant to THIS topic. NEVER invent tools. NEVER default to security vendors if the topic isn't about security.
+- category names MUST reflect the topic.
+- SEMANTIC FIT: every item must be a primary, genuine instance of its category name. Would an industry analyst file THIS exact product under THIS category? If it is famous for a DIFFERENT category, do not borrow it.
+- HEADLINE FIT: the card is ALWAYS a set of categorised lists, never a sequence of steps. "hook"/"subtitle" must describe a catalogue/landscape/breakdown, never a "step-by-step", "how-to", "process", or "timeline".
+- "highlight" must be a substring that appears verbatim inside "hook".
+- icon must be one of the allowed values; if unsure, use "shield".
+- brand_letter MUST be exactly ONE uppercase A-Z. brand_color a valid 6-digit hex. domain a real lowercase domain or ''."""
+    return {
+        "schema": schema,
+        "rules": rules,
+        "callback": "a curated set of real, named tools and frameworks grouped into categories",
+    }
+
+
+def _spec_listicle() -> dict:
+    schema = f"""{{
+{_common_keys()}
+  "points": [
+    {{
+      "title": "string - the point itself, 4-10 words, a punchy standalone takeaway. This is the bold line the reader remembers.",
+      "detail": "string - ONE supporting sentence, 10-20 words, that makes the point concrete with a real fact, example, or named entity."
+    }}
+  ]
+}}"""
+    rules = """\
+STRUCTURE RULES (HARD REQUIREMENTS):
+- points: 5 to 7 items (default 6) UNLESS the user's custom instructions specify a number, then use exactly that number.
+- Each point is a distinct, non-overlapping idea. No two points may restate the same thing.
+- Each "title" is a crisp, declarative takeaway (not a question, not a category label).
+- Each "detail" must add a concrete, real, verifiable fact, example, statistic with a named source, or named entity. No filler, no generic advice.
+- Order the points so they build a logical arc (most important or most surprising first works well).
+- "hook" is the headline of the whole list (e.g. "6 shifts redefining AI governance in 2026"). "highlight" must appear verbatim inside "hook".
+- Do not fabricate named tools, stats, events, or quotes inside the details."""
+    return {
+        "schema": schema,
+        "rules": rules,
+        "callback": "a numbered list of the key points, each a bold takeaway with one supporting line",
+    }
+
+
+def _spec_news(source_text: str | None) -> dict:
+    has_source = bool((source_text or "").strip())
+    schema = f"""{{
+{_common_keys()}
+  "eyebrow": "string - 1-3 word tag for the kind of development, UPPERCASE (e.g. 'REGULATION', 'INCIDENT', 'RELEASE', 'ENFORCEMENT', 'RULING')",
+  "blocks": [
+    {{
+      "label": "string - 2-4 word section label. Use this exact set in this order: 'What happened', 'Why it matters', 'What to watch'. You MAY add a fourth: 'The risk' or 'For leaders'.",
+      "text": "string - 1-2 tight sentences, 15-35 words, factual."
+    }}
+  ]
+}}"""
+    if has_source:
+        grounding = """\
+SOURCE GROUNDING (HARD REQUIREMENT, this is a real-news template):
+- The user has pasted a SOURCE below. Every factual claim, name, number, date, and quote in the card and caption MUST come from that source text. Do NOT add facts from your own memory. Do NOT speculate beyond the source.
+- If the source does not state something, do not assert it. It is fine for a block to be short.
+- "hook" must be an accurate, non-sensational headline for what the source describes. "highlight" must appear verbatim in "hook"."""
+    else:
+        grounding = """\
+NO SOURCE PROVIDED:
+- The user did not paste a source. Only write about an event if you are HIGHLY CONFIDENT it is real and you can recall it accurately. Do NOT invent events, dates, numbers, or quotes.
+- If you cannot recall a specific, real, verifiable recent development for this topic with confidence, write about a well-established, durable shift in the topic instead and keep all claims to things you are certain are true. Never fabricate a news event.
+- "highlight" must appear verbatim in "hook"."""
+    rules = (
+        "STRUCTURE RULES (HARD REQUIREMENTS):\n"
+        "- blocks: 3 to 4, in the order described in the schema.\n"
+        "- Neutral, factual, newsroom tone in the card. The caption may add DTQ's point of view but must not invent facts.\n"
+        "- No hype, no clickbait, no fabricated specifics.\n\n"
+        + grounding
+    )
+    return {
+        "schema": schema,
+        "rules": rules,
+        "callback": "a clean breakdown of a recent development: what happened, why it matters, and what to watch",
+    }
+
+
+def _spec_stat() -> dict:
+    schema = f"""{{
+{_common_keys()}
+  "stat_value": "string - the headline number EXACTLY as it should read big, including unit/symbol (e.g. '$4.88M', '68%', '3.2x', '277 days'). Must be a real, verifiable figure.",
+  "stat_label": "string - 4-12 words naming WHAT the number measures (e.g. 'average cost of a data breach in 2024').",
+  "stat_source": "string - the real named source and year (e.g. 'IBM Cost of a Data Breach Report, 2024'). REQUIRED. If you cannot attribute the figure to a real named source, choose a different statistic you CAN attribute.",
+  "context": [
+    "string - a short supporting fact or implication, 6-14 words, real and verifiable"
+  ]
+}}"""
+    rules = """\
+STRUCTURE RULES (HARD REQUIREMENTS):
+- stat_value, stat_label, and stat_source are all REQUIRED and must be real. Never invent a statistic or a source. If unsure of the exact figure, pick a different, well-documented statistic from a named source (IBM Cost of a Data Breach, Verizon DBIR, Gartner, ENISA, NIST, Stanford AI Index, etc.).
+- context: 2 to 4 short supporting facts, each real and verifiable. Each adds something new (trend, comparison, driver, implication).
+- "hook" is a short framing kicker above the number (4-8 words). "subtitle" frames it below. "highlight" must appear verbatim in "hook".
+- The number is the hero. Keep all text spare so it can be set large."""
+    return {
+        "schema": schema,
+        "rules": rules,
+        "callback": "one headline statistic, its source, and a few supporting facts",
+    }
+
+
+def _spec_quote() -> dict:
+    schema = f"""{{
+{_common_keys()}
+  "quote": "string - the single bold statement, 12-28 words. A sharp, defensible point of view in DTQ's voice. NOT a fabricated quote attributed to a real person.",
+  "attribution": "string - who is saying it. Use 'DTQ' or a role like 'The DTQ view'. Do NOT attribute to a named real person unless it is a real, verifiable, publicly documented quote you are certain of. Otherwise use 'DTQ'.",
+  "support": "string - ONE supporting line beneath the quote, 8-18 words, that grounds or sharpens it with a real fact or implication."
+}}"""
+    rules = """\
+STRUCTURE RULES (HARD REQUIREMENTS):
+- "quote" is the hero text, set large. It must be a genuine, defensible take, not hype and not a fabricated celebrity quote.
+- "attribution" defaults to 'DTQ'. Only name a real person if you are quoting a real, documented statement verbatim and are certain of it.
+- "support" adds one concrete, real, verifiable line.
+- "hook" is a tiny kicker/eyebrow above the quote (e.g. 'THE DTQ VIEW', 2-4 words). "highlight" must appear verbatim inside the QUOTE (not the hook), so set highlight to one or two words taken from "quote"."""
+    return {
+        "schema": schema,
+        "rules": rules,
+        "callback": "a single bold point of view, set large, with one supporting line",
+    }
+
+
+def _spec_framework() -> dict:
+    schema = f"""{{
+{_common_keys()}
+  "steps": [
+    {{
+      "title": "string - the step name, 3-8 words, action-oriented (starts with a verb where natural).",
+      "detail": "string - ONE sentence, 10-20 words, on what to actually do in this step, grounded in real practice, frameworks, or named tools."
+    }}
+  ]
+}}"""
+    rules = """\
+STRUCTURE RULES (HARD REQUIREMENTS):
+- steps: 4 to 6 (default 5) UNLESS the user's custom instructions specify a number, then use exactly that.
+- The steps are SEQUENTIAL: each follows from the last to form a real, coherent process or playbook. Order matters.
+- Each "detail" must be concrete and actionable, grounded in real frameworks, standards, or practices (e.g. NIST AI RMF, ISO 42001, threat modelling). No fabricated tools or stats.
+- "hook" names the framework/process (e.g. 'A 5-step playbook for AI vendor risk'). "subtitle" frames it. "highlight" must appear verbatim inside "hook".
+- Because this template is explicitly a process, it is the ONE place a 'step-by-step' headline is correct."""
+    return {
+        "schema": schema,
+        "rules": rules,
+        "callback": "a numbered, step-by-step framework the reader can follow in order",
+    }
+
+
+def _spec_for(template: str, source_text: str | None) -> dict:
+    if template == "listicle":
+        return _spec_listicle()
+    if template == "news":
+        return _spec_news(source_text)
+    if template == "stat":
+        return _spec_stat()
+    if template == "quote":
+        return _spec_quote()
+    if template == "framework":
+        return _spec_framework()
+    return _spec_catalogue()
+
+
+_TEMPLATE_NOUN = {
+    "catalogue": "categorised infographic card",
+    "listicle": "numbered list card",
+    "news": "news-breakdown card",
+    "stat": "single-statistic card",
+    "quote": "bold-quote card",
+    "framework": "step-by-step framework card",
+}
+
+
+# ---------------------------------------------------------------------------
+# Public builder
+# ---------------------------------------------------------------------------
+
 def build_messages(
     topic: str | None,
     custom_instructions: str | None,
     tone: str | None = None,
+    template: str | None = None,
+    source_text: str | None = None,
 ) -> list[dict]:
     chosen_topic = (topic or "").strip() or _pick_topic()
     extras = (custom_instructions or "").strip()
     tone_directive = TONE_PRESETS.get((tone or "default").strip().lower(), "")
+    tmpl = (template or DEFAULT_TEMPLATE).strip().lower()
+    if tmpl not in TEMPLATE_IDS:
+        tmpl = DEFAULT_TEMPLATE
+    src = (source_text or "").strip()
 
-    system = (
-        "You are a senior content strategist writing LinkedIn posts for "
-        "Data Trust Quotients (DTQ). Your audience is CISOs, cybersecurity "
-        "leaders, AI leaders, and data governance executives. Voice is "
-        "confident, factual, plain English, zero hype, zero marketing fluff. "
-        "Never invent tools, vendors, frameworks, regulations, or statistics. "
-        "Every named entity must be a real, verifiable thing. If you are not "
-        "sure something is real, do not include it.\n\n"
-        "FOUR NON-NEGOTIABLE RELIABILITY RULES (most failures come from breaking these):\n"
-        "1. COHERENCE: the headline, subtitle, and caption must describe what the "
-        "card ACTUALLY contains. The card is a curated catalogue of real named "
-        "things. Do not write a news-style or attack-narrative headline that the "
-        "listed items do not substantiate. A reader who looks at the items must be "
-        "able to see the headline is literally true.\n"
-        "2. CORRECT CATEGORISATION: a category name is a PROMISE about every item "
-        "under it. Each item must be a real, PRIMARY instance of its category, not "
-        "merely topic-adjacent. A general-purpose platform does not belong under a "
-        "specialised function it does not actually perform. Before placing an item, "
-        "ask: 'Is this thing literally and primarily a <category name>?' If not, "
-        "move it or replace it.\n"
-        "3. EXACT REAL NAMES: use the exact product, vendor, framework, or standard "
-        "name as it really exists. Never bolt a function onto a brand to invent a "
-        "product (e.g. 'Mailchimp Abuse Detection' is not a real product). Never "
-        "list a tool under a job it is not actually used for. Accuracy always beats "
-        "filling a quota: fewer correct items is better than padding with items "
-        "that do not fit.\n"
-        "4. NO DEFAMATION / NO MISLABELLING: never present a real, legitimate "
-        "company, product, or person as a malicious actor, an attack/hacking tool, "
-        "an illegal service, or as performing a function it does not perform. "
-        "Mainstream AI vendors (OpenAI, Anthropic, Google, Microsoft, Hugging Face, "
-        "Midjourney, etc.) are NOT 'phishing tools', 'hacking tools', or 'attack "
-        "tools' and must never be labelled as such. Do not stretch a product into a "
-        "category it does not serve (an EDR tool is not a 'phishing detector'; an "
-        "MFA/identity product is not a 'phishing detector'; a cloud-posture tool is "
-        "not an email-security tool). When the topic is about attacks, threats, or "
-        "misuse, represent the offensive side with real, neutral, factual named "
-        "things, recognised attack TECHNIQUES and tactics (e.g. spear phishing, "
-        "credential stuffing, deepfake voice cloning, MITRE ATT&CK techniques) or "
-        "documented threat categories, NOT legitimate vendor brands relabelled as "
-        "weapons. If the only honest description is 'general-purpose tool that can "
-        "be misused', name the TECHNIQUE, not the brand, or drop that category."
-        "\n\n" + DTQ_CONTEXT
-    )
+    spec = _spec_for(tmpl, src)
+    noun = _TEMPLATE_NOUN[tmpl]
+
+    # Custom instructions sit at the very TOP of the user message and are repeated
+    # at the end, so they are never drowned out by the structure rules.
+    custom_block = ""
+    if extras:
+        custom_block = (
+            "================ USER CUSTOM INSTRUCTIONS (HIGHEST PRIORITY) ================\n"
+            f"{extras}\n"
+            "These override the stylistic/structural defaults below wherever they "
+            "conflict (number of items, angle, emphasis, inclusions, exclusions, "
+            "wording). Honour them. They do NOT override accuracy/no-fabrication.\n"
+            "=============================================================================\n\n"
+        )
+
+    source_block = ""
+    if tmpl == "news" and src:
+        source_block = (
+            "------------------ PASTED SOURCE (summarise ONLY this) ------------------\n"
+            f"{src}\n"
+            "-------------------------------------------------------------------------\n\n"
+        )
 
     user = f"""\
-Generate ONE LinkedIn post and an accompanying infographic card payload on this topic:
+{custom_block}Generate ONE LinkedIn post and an accompanying {noun} on this topic:
 
 TOPIC: {chosen_topic}
 
 {tone_directive}
 
-{f"ADDITIONAL INSTRUCTIONS FROM USER: {extras}" if extras else ""}
+{source_block}Return a SINGLE JSON object (no markdown, no commentary) with EXACTLY these keys:
 
-Return a SINGLE JSON object (no markdown, no commentary) with EXACTLY these keys:
+{spec['schema']}
 
-{{
-  "topic": "string - the topic in 3-8 words",
-  "title": "string - short post title, 4-10 words, used as Airtable record title",
-  "hook": "string - the card headline, 6-12 words, punchy, no hype. MUST faithfully describe what the card actually contains (a curated set of real named things in this topic). It is a label for the collection, NOT a speculative news headline, attack story, or any claim the listed items do not back up. A reader scanning the items must agree the hook is literally accurate.",
-  "highlight": "string - one or two words from the hook to highlight in yellow on the card",
-  "subtitle": "string - one short line under the hook, 4-10 words. Reinforces or frames the actual card contents; never introduces a claim or storyline the items do not support.",
-  "caption": "string - the full LinkedIn post text, see CAPTION RULES below",
-  "categories": [
-    {{
-      "name": "string - 2-5 words. CRITICAL: category names MUST be derived from the natural cuts WITHIN THIS SPECIFIC TOPIC. Do NOT force every topic into a generic taxonomy. Different topics need totally different category names. Examples by topic: For 'AI image generation tools' use cuts like ['Foundation Models', 'Editing Tools', 'Specialized Generators', 'Open Source']. For 'SEO in 2026' use cuts like ['AI Search Engines', 'Content Platforms', 'Technical SEO', 'Analytics']. For 'AI funding 2026' use cuts like ['Top VCs', 'Accelerators', 'Grants & Programs', 'Angel Networks']. For 'AI tools for retail' use cuts like ['Personalisation', 'Inventory', 'Visual Search', 'Customer Service']. For 'Y Combinator 2026 watchlist' use cuts like ['Dev Tools', 'AI Infra', 'Fintech', 'Healthtech']. For 'Cybersecurity stack' use cuts like ['Threat Defence', 'Identity', 'Cloud', 'Resilience']. NEVER default to cybersecurity layers unless the topic is explicitly about cybersecurity. Look at the topic, ask what natural divisions exist WITHIN it, pick those. A category name is a PROMISE that EVERY item beneath it satisfies: if you cannot fill a category with at least 4 real items that are each a primary, genuine instance of that exact name, choose a different category cut. Do NOT keep a category and pad it with items that only loosely relate.",
-      "items": [
-        {{
-          "title": "string - the exact, real name of the thing (framework / regulation / tool / vendor / standard) AS IT ACTUALLY EXISTS. Do not invent product or feature names by attaching a function to a brand (e.g. NOT 'Mailchimp Abuse Detection'). If a vendor has a real named product for this category, use that exact product name; otherwise use the plain brand/standard name. The thing MUST be a primary, genuine instance of THIS item's category, not just topic-adjacent.",
-          "description": "string - 6-15 words, factual, describing what the thing ACTUALLY and PRIMARILY does. The description must be true of the real product and must be consistent with the category it sits under. If the honest description does not fit the category, the item is in the wrong place; fix it.",
-          "icon": "string - one of: {", ".join(ICON_OPTIONS)}",
-          "domain": "string - the brand's primary website domain in lowercase, no protocol, no path, no www. The brand MUST be a real, well-known company/tool relevant to THIS topic. Domain examples across sectors: cybersecurity -> 'crowdstrike.com', 'okta.com', 'wiz.io', 'cloudflare.com'; AI tools -> 'openai.com', 'anthropic.com', 'midjourney.com', 'stability.ai', 'huggingface.co', 'runwayml.com', 'perplexity.ai', 'mistral.ai'; SEO/content -> 'semrush.com', 'ahrefs.com', 'surferseo.com', 'clearscope.io'; VCs / funding -> 'ycombinator.com', 'a16z.com', 'sequoiacap.com', 'khoslaventures.com', 'lightspeed.com'; SaaS / productivity -> 'notion.so', 'linear.app', 'figma.com', 'slack.com'; retail/ecom -> 'shopify.com', 'klaviyo.com', 'gorgias.com'. PICK BRANDS THAT FIT THE TOPIC. If the item is a framework / regulation / standard / methodology with no parent company (e.g. NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, MITRE ATLAS, SOC 2, GDPR), set domain to an EMPTY STRING ''.",
-          "brand_letter": "string - SINGLE uppercase letter, used as a fallback if no logo can be fetched. Usually the first letter of the title (e.g. 'C' for CrowdStrike, 'M' for Midjourney, 'Y' for Y Combinator)",
-          "brand_color": "string - hex color like '#dc1e2c' used as the fallback badge background. Pick a color that matches the brand if you know it, otherwise any solid hex."
-        }}
-      ]
-    }}
-  ]
-}}
+{spec['rules']}
 
-STRUCTURE RULES (HARD REQUIREMENTS — these are non-negotiable):
-- categories: EXACTLY 4 groups (not 3, not 5 — exactly 4).
-- total items across all categories: AT LEAST 16, at most 20. Before you respond, COUNT your items. If the total is below 16, add more real named things THAT GENUINELY FIT THEIR CATEGORY until you reach 16. Never reach the count by padding a category with items that do not truly belong, by inventing names, or by listing a tool under a function it does not perform. If a topic cannot honestly yield 16 correctly-categorised real items, re-choose your 4 category cuts so that it can. Accuracy and correct categorisation outrank the count.
-- distribute items roughly evenly: 4-5 items per category.
-- each item.title MUST be a REAL named thing relevant to THIS topic. Examples across sectors so you don't anchor on one: AI tools (OpenAI, Anthropic, Midjourney, Stable Diffusion, Hugging Face, LangChain, Pinecone), security (CrowdStrike, Okta, Wiz, Splunk), frameworks (NIST AI RMF, ISO 42001, EU AI Act, OWASP LLM Top 10, SOC 2, GDPR), VCs / accelerators (Y Combinator, a16z, Sequoia, Khosla Ventures, Lightspeed), SaaS (Notion, Linear, Figma, Slack), data tools (Snowflake, Databricks, dbt, Fivetran), SEO/content (Semrush, Ahrefs, Surfer SEO). NEVER invent tools. NEVER default to security vendors if the topic isn't about security.
-- category names MUST reflect the topic. Do not reuse 'Threat Defence / Identity / Cloud / Resilience' unless the topic is specifically about a cybersecurity stack.
-- SEMANTIC FIT (hard requirement): every item must be a primary, genuine instance of its category name. Apply the classification test: would the vendor's own marketing, or an industry analyst (e.g. a Gartner/Forrester market category), file THIS exact product under THIS category? If it is famous for a DIFFERENT category, do not borrow it. Examples of what NOT to do: CrowdStrike Falcon (endpoint/EDR) under 'Phishing Detection'; Okta (identity/MFA) under 'Phishing Detection'; Wiz (cloud posture/CSPM) under 'Phishing Detection'. Use the genuine leaders of the EXACT category instead (for email/phishing defence that would be names like Proofpoint, Mimecast, Abnormal Security, Microsoft Defender for Office 365). A general-purpose platform does NOT belong under a specialised category unless it really is a product of that exact kind.
-- NO DEFAMATION (hard requirement): never list a legitimate company, product, or person under a category that frames it as malicious, illegal, or as an attack/hacking tool. Mainstream AI vendors are not 'phishing/hacking/attack tools'. For offensive or threat topics, populate the attacker side with real attack TECHNIQUES, tactics, or documented threat categories (e.g. spear phishing, deepfake voice cloning, credential stuffing, MITRE ATT&CK techniques), not legitimate brand names.
-- HEADLINE FIT (hard requirement): the card is ALWAYS a set of categorised lists, never a sequence of steps. So "hook" and "subtitle" must describe a catalogue, landscape, or breakdown, and must NEVER promise a "step-by-step", "how-to", "process", "stages", "walkthrough", "timeline", or "playbook of steps" that the categorised items do not deliver. They must accurately summarise the actual items, not a story, attack, or trend the items do not demonstrate.
-- "highlight" must be a substring that appears verbatim inside "hook".
-- icon must be one of the allowed values; if unsure, use "shield".
-- brand_letter MUST be exactly ONE uppercase A-Z character, normally the first letter of the title.
-- brand_color MUST be a valid 6-digit hex color starting with '#'.
-- domain MUST be a real, currently-resolvable public website domain in lowercase (no protocol, no www, no path). If you are not certain the brand has a real website, set it to an empty string. Never invent a domain.
+{_caption_rules(spec['callback'])}
 
-CAPTION RULES (this is the LinkedIn post body — match the voice of the examples below):
-
-Length and format:
-- Target 120 to 170 words. A thin, one-line-per-section caption is NOT acceptable. If your draft is under 110 words, expand it with specific detail before returning.
-- Every sentence must carry a concrete, real point. NO filler lines (e.g. "a lot of companies are moving to the cloud" is banned filler). Replace any generic statement with a specific, factual observation tied to the topic or a named item on the card.
-- Tight, not padded: no repetition, no throat-clearing. Each line earns its place, but there must be enough substance to reach the length above.
-- Short paragraphs (1-3 lines each) separated by blank lines.
-- No markdown asterisks, no headers, no bulleted lists with dashes or stars.
-- NO em-dashes (—). Use commas, periods, or colons instead. This is strict.
-- No hype words: "revolutionize", "game-changer", "unlock", "supercharge", "leverage", "next-gen", "cutting-edge", "harness", "empower", "transform".
-
-Emphasis with Unicode (this is how LinkedIn posts get visual weight without markdown):
-- For 2-4 key phrases or whole sentences, use Unicode MATHEMATICAL SANS-SERIF BOLD characters (e.g. 𝗧𝗵𝗶𝘀 𝗶𝘀 𝗯𝗼𝗹𝗱). Use these on lines that carry the most weight — the hook, a punchy takeaway, the closing question.
-- For 1-2 softer sub-emphases (asides, follow-up lines), use Unicode MATHEMATICAL SANS-SERIF ITALIC characters (e.g. 𝘵𝘩𝘪𝘴 𝘪𝘴 𝘪𝘵𝘢𝘭𝘪𝘤).
-- Do NOT bold or italicize every sentence. Most text is plain. Bold/italic are accents.
-
-Structure (follow this rough flow):
-1. CONVERSATIONAL HOOK (1-2 sentences, Unicode bold): name a tension, a shift, or a misconception. CRITICAL: you must VARY THE OPENING STYLE every time. NEVER start with "Most CISOs we talk to" — that phrase is banned. NEVER reuse the same opener archetype two posts in a row. Pick a fresh one each generation from this list:
-
-   a) Audience-state shift: "[Audience] have stopped asking [old question]." OR "Quietly, [thing] became a [board / regulator / oncall] problem."
-   b) Honest concession: "Let's be honest." OR "Nobody loves saying this, but..." OR "Here's the uncomfortable part of [topic]:"
-   c) Misconception flip: "Everyone treats [X] like [Y]. It isn't." OR "[Common claim]. The reality is messier."
-   d) Industry pulse: "Something changed in [topic] this quarter." OR "[Sector] has a new failure mode and it isn't [obvious thing]."
-   e) Direct question: "What actually separates the teams that [outcome] from the ones that don't?"
-   f) Specific scenario: "A [role] told us last week that [observation]."
-   g) Counterintuitive claim: "The [tool / framework] you already pay for is doing more than you think." OR "The strongest [topic] programmes we see aren't the loudest."
-   h) Number-led (ONLY if you can name a real, verifiable, named-source stat — if not, skip this archetype): "[Real stat]. [Source name]."
-   i) Pattern observation: "We keep seeing the same [thing] across [N] [audience] conversations."
-   j) Recent event framing (ONLY if you are CERTAIN the event is real and recent): "[Real event] this week was a reminder that [insight]."
-
-   Pick one archetype, then write an opener in your own words. Do not copy the example sentences verbatim.
-2. A TOPICAL ANCHOR: briefly reference a current event, regulator action, recent incident, or industry shift — but ONLY if you are certain it is real and verifiable. If you cannot anchor to a real event, skip this paragraph rather than inventing one.
-3. CALLBACK TO THE CARD: one short sentence that points to the image/card alongside the post. Examples: "So we put together the [N] [items] we keep seeing across [layers]." or "The card breaks them down across [N] layers."
-4. ONE OR TWO ONE-LINE INSIGHTS: short, punchy, standalone takeaway sentences between paragraphs. Apply Unicode bold to the punchy part of one. Examples of the rhythm: "Identity is now where most attacks start." "Backup isn't resilience. 𝗥𝗲𝗰𝗼𝘃𝗲𝗿𝘆 𝘀𝗽𝗲𝗲𝗱 𝗶𝘀."
-5. ENGAGEMENT QUESTION: a short closing question (Unicode bold) inviting replies, optionally followed by one italic line. Example: "𝗔𝗻𝘆𝘁𝗵𝗶𝗻𝗴 𝘆𝗼𝘂'𝗱 𝗮𝗱𝗱 𝗼𝗿 𝗮𝗿𝗴𝘂𝗲 𝘄𝗶𝘁𝗵? \n 𝘊𝘶𝘳𝘪𝘰𝘶𝘴 𝘸𝘩𝘦𝘳𝘦 𝘵𝘦𝘢𝘮𝘴 𝘢𝘳𝘦 𝘥𝘰𝘶𝘣𝘭𝘪𝘯𝘨 𝘥𝘰𝘸𝘯."
-
-Emojis:
-- Optional. Use AT MOST 2-3 total in the whole caption. Acceptable: ▶ 📌 👀 🤯
-- Never use emoji bullets (🚀✨🔥) or strings of decorative emojis. Do not start lines with emojis as bullets.
-
-Hashtags:
-- The very last line is 5 to 8 hashtags, space-separated, each starting with a single # character.
-- Do NOT write the literal word "hashtag" before # (that is a LinkedIn UI artifact, not actual text).
-- Pick hashtags matched to the topic and audience: #Cybersecurity #CISO #AIGovernance #ZeroTrust #CloudSecurity #IdentitySecurity #DataPrivacy #ResponsibleAI etc.
-
-Reality check:
-- Every named entity (tool, vendor, framework, regulation, event, person, agency) must be REAL and verifiable. If you are not certain it is real, omit it.
-- Tie the caption substantively to the categories/items in the card so the reader sees the post and the image as one piece.
-
-VOICE EXAMPLES TO MATCH (do not copy text, copy the rhythm, density, and emphasis pattern):
-
-Example A (industry-pulse archetype; the [BRACKETED] strings are PLACEHOLDERS — you MUST replace them with words drawn from YOUR actual topic, NEVER copy them verbatim):
-"𝗦𝗼𝗺𝗲𝘁𝗵𝗶𝗻𝗴 𝗾𝘂𝗶𝗲𝘁 𝗯𝘂𝘁 𝗯𝗶𝗴 𝗶𝘀 𝘀𝗵𝗶𝗳𝘁𝗶𝗻𝗴 𝗶𝗻 [TOPIC AREA] 𝘁𝗵𝗶𝘀 𝗾𝘂𝗮𝗿𝘁𝗲𝗿.
-𝘛𝘩𝘦 𝘶𝘴𝘦𝘧𝘶𝘭 𝘲𝘶𝘦𝘴𝘵𝘪𝘰𝘯 𝘢𝘣𝘰𝘶𝘵 [SUBJECT] 𝘩𝘢𝘴 𝘤𝘩𝘢𝘯𝘨𝘦𝘥.
-
-It's no longer about [old framing]. It's about [new framing relevant to your topic].
-
-We mapped what keeps showing up across [audience]'s real stacks.
-The cuts that emerged ▶ 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗔, 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗕, 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗖, 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆 𝗗.
-(Replace those with the actual category names you chose for this topic.)
-
-[One short, specific insight about the topic — 6-12 words.]
-[Another one-liner with the punchy half in 𝗯𝗼𝗹𝗱.]
-
-𝗪𝗵𝗮𝘁'𝘀 𝗺𝗶𝘀𝘀𝗶𝗻𝗴 𝗳𝗿𝗼𝗺 𝘁𝗵𝗶𝘀 𝗽𝗶𝗰𝘁𝘂𝗿𝗲?
-𝘊𝘶𝘳𝘪𝘰𝘶𝘴 𝘸𝘩𝘦𝘳𝘦 [audience] 𝘢𝘳𝘦 𝘥𝘰𝘶𝘣𝘭𝘪𝘯𝘨 𝘥𝘰𝘸𝘯.
-
-[5-8 hashtags chosen for THIS topic, not generic security ones]"
-
-Topic-specific hashtag examples so you don't default to security tags:
-- AI tools post: #AI #GenerativeAI #LLM #AITools #EnterpriseAI
-- SEO post: #SEO #ContentMarketing #DigitalStrategy #AISearch
-- Funding post: #Startups #VentureCapital #FoundersJourney #AIFunding
-- Data governance post: #DataGovernance #DataPrivacy #AIGovernance #ResponsibleAI
-- Security post (only when topic is security): #Cybersecurity #InfoSec #CISO #ZeroTrust
-
-Example B:
-"𝘓𝘦𝘵'𝘴 𝘣𝘦 𝘩𝘰𝘯𝘦𝘴𝘵 𝘧𝘰𝘳 𝘢 𝘴𝘦𝘤𝘰𝘯𝘥...
-A lot of people are studying for the 𝘄𝗿𝗼𝗻𝗴 𝗰𝘆𝗯𝗲𝗿𝘀𝗲𝗰𝘂𝗿𝗶𝘁𝘆 𝗰𝗲𝗿𝘁𝗶𝗳𝗶𝗰𝗮𝘁𝗶𝗼𝗻.
-
-Not because the cert is bad, but because it doesn't align with the career they want.
-
-𝗧𝗵𝗲 𝗰𝗮𝗿𝗱 𝗯𝗲𝗹𝗼𝘄 𝗯𝗿𝗲𝗮𝗸𝘀 𝗱𝗼𝘄𝗻 which certifications align with which track.
-📌 𝘚𝘢𝘷𝘦 𝘵𝘩𝘪𝘴 𝘣𝘦𝘧𝘰𝘳𝘦 𝘤𝘩𝘰𝘰𝘴𝘪𝘯𝘨 𝘺𝘰𝘶𝘳 𝘯𝘦𝘹𝘵 𝘤𝘦𝘳𝘵.
-
-Which track do you think is the most underrated? 👀
-
-#Cybersecurity #CISO #CyberCareers #SecurityCertifications"
-
-FINAL SELF-CHECK BEFORE YOU RETURN (run through every item — this is where reliability is won or lost):
-1. Headline test: read "hook" and "subtitle", then scan the items. Does the card actually deliver what the headline promises? If the headline tells a story the items do not back up, rewrite the headline to describe the real contents. Confirm it does NOT promise steps, a process, a walkthrough, or a timeline — the card is categorised lists.
-2. Category test: for EACH item, read its title against its category name and ask "would the vendor or an analyst actually classify this exact product under this category?" If no, replace the item or move it. Reject products famous for a neighbouring category (e.g. an EDR or MFA or cloud-posture tool placed under 'Phishing Detection') and general-purpose tools dropped into specialised categories.
-3. Defamation test: for EACH item, confirm no legitimate company/product/person is framed as malicious, illegal, or an attack/hacking tool. If a category is about the attacker side, confirm its items are real techniques/tactics, not legitimate vendor brands.
-4. Real-name test: for EACH item, confirm the title is the exact real name of a thing that genuinely exists. Delete anything you invented, any brand+function mashups, and anything you are not confident is real.
-5. Description test: for EACH item, confirm the description is true of the real thing AND consistent with its category.
-6. Count test: confirm exactly 4 categories and 16-20 items total, 4-5 per category, with NO padding. If fixing the above dropped you below 16, add more genuinely-fitting real items or re-cut the categories.
-Only after all six checks pass do you return the JSON.
+FINAL SELF-CHECK BEFORE YOU RETURN:
+1. Coherence: read "hook"/"subtitle", then scan the card content. Does the card deliver exactly what the headline promises? If not, fix the headline.
+2. Real names: every named tool, vendor, framework, regulation, event, person, statistic, source, or quote is REAL and verifiable. Delete anything invented.
+3. No defamation: no legitimate company/product/person is framed as malicious, illegal, or an attack tool.
+4. Highlight: "highlight" appears verbatim inside the field specified for this template.
+5. Structure: the item/section counts match the rules above (or the user's custom instructions, which win).
+6. Custom instructions: re-read the user's custom instructions and confirm you followed every one.
 
 Return ONLY the JSON object. No preface, no code fences."""
 
+    if extras:
+        user += (
+            "\n\nREMINDER: the USER CUSTOM INSTRUCTIONS at the top of this message "
+            "are mandatory and take precedence over the defaults wherever they conflict."
+        )
+
     return [
-        {"role": "system", "content": system},
+        {"role": "system", "content": _SYSTEM_CORE},
         {"role": "user", "content": user},
     ]

@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -11,7 +12,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from card import DEFAULT_STYLE, FONT_OPTIONS, build_card_html
+from card import (
+    DEFAULT_STYLE,
+    DEFAULT_TEMPLATE,
+    FONT_OPTIONS,
+    TEMPLATES,
+    build_card_html,
+    template_required,
+)
 from prompts import TONE_PRESETS, build_messages
 from services import (
     ServiceError,
@@ -50,6 +58,39 @@ TONE_OPTIONS = [
     ("question-led", "Question-led — invites discussion"),
     ("data-led", "Data-led — anchored in a real stat"),
 ]
+
+# Template gallery options for the form: (id, label, blurb). Order matters.
+TEMPLATE_OPTIONS = [(tid, t["label"], t["blurb"]) for tid, t in TEMPLATES.items()]
+
+# Catalogue emits 16-20 fully-specified items so it needs the most room; the
+# text templates are much smaller. Smaller limits also ease the tight free-tier TPM.
+# Captions now run 180-260 words and Unicode-bold glyphs cost extra tokens, so
+# every template needs headroom for the caption on top of its card fields.
+_MAX_TOKENS = {"catalogue": 5400, "framework": 3400, "listicle": 3400, "news": 3400, "stat": 3200, "quote": 3000}
+
+
+def _max_tokens_for(template: str) -> int:
+    return _MAX_TOKENS.get(template, 4500)
+
+
+# Em/en-dashes and the horizontal bar are banned in captions; the model still
+# emits them, so strip them deterministically. Also drop "tofu"/replacement
+# boxes that can show up as a stray brick character.
+_DASH_RE = re.compile(r"[ \t]*[—–―][ \t]*")
+
+
+def _sanitize_caption(text: str) -> str:
+    if not text:
+        return text
+    text = text.replace("�", "")          # replacement char (the "brick")
+    text = text.replace("­", "")           # soft hyphen
+    text = _DASH_RE.sub(", ", text)             # no em/en-dashes -> comma
+    text = re.sub(r"[ \t]+,", ",", text)        # " ," -> ","
+    text = re.sub(r",\s*,", ", ", text)         # ",," -> ", "
+    text = re.sub(r",[ \t]*([.;:!?])", r"\1", text)  # ", ." -> "."
+    text = re.sub(r"[ \t]{2,}", " ", text)      # collapse runs of spaces
+    text = re.sub(r"[ \t]+\n", "\n", text)      # no trailing spaces before newline
+    return text.strip()
 
 # --- Password gate (optional). Set APP_PASSWORD env var to enable. ---
 APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
@@ -112,7 +153,7 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request,
         "form.html",
-        {"team": TEAM_MEMBERS, "tones": TONE_OPTIONS},
+        {"team": TEAM_MEMBERS, "tones": TONE_OPTIONS, "templates_list": TEMPLATE_OPTIONS},
     )
 
 
@@ -139,7 +180,11 @@ async def generate(
     custom_instructions: str = Form(default=""),
     assignee: str = Form(default=""),
     tone: str = Form(default="default"),
+    template: str = Form(default=DEFAULT_TEMPLATE),
+    source_text: str = Form(default=""),
 ):
+    template = template if template in TEMPLATES else DEFAULT_TEMPLATE
+
     def err(stage: str, detail: str):
         return templates.TemplateResponse(
             request,
@@ -152,6 +197,8 @@ async def generate(
                 "topic": topic,
                 "custom_instructions": custom_instructions,
                 "tone": tone,
+                "template": template,
+                "source_text": source_text,
                 "assignee": assignee or "Unassigned",
                 "status": "Draft",
                 "status_flow": STATUS_FLOW,
@@ -160,16 +207,17 @@ async def generate(
         )
 
     try:
-        messages = build_messages(topic, custom_instructions, tone=tone)
-        data = await call_groq(messages)
+        messages = build_messages(topic, custom_instructions, tone=tone, template=template, source_text=source_text)
+        data = await call_groq(messages, max_tokens=_max_tokens_for(template))
+        data["template"] = template
 
         def _item_count(d: dict) -> int:
             return sum(len(c.get("items") or []) for c in (d.get("categories") or []))
 
-        # Only retry on egregiously low counts to avoid blowing the Groq TPM budget.
-        # Don't replay the prior response — just re-prompt with stronger emphasis.
-        if _item_count(data) < 10:
-            retry_messages = build_messages(topic, custom_instructions, tone=tone)
+        # Catalogue-only safety net: only retry on egregiously low item counts to
+        # avoid blowing the Groq TPM budget. Other templates have their own shapes.
+        if template == "catalogue" and _item_count(data) < 10:
+            retry_messages = build_messages(topic, custom_instructions, tone=tone, template=template, source_text=source_text)
             retry_messages[0]["content"] = (
                 retry_messages[0]["content"]
                 + "\n\nRETRY NOTICE: A prior attempt returned too few items. "
@@ -177,9 +225,10 @@ async def generate(
                 "Count before responding."
             )
             try:
-                retry_data = await call_groq(retry_messages)
+                retry_data = await call_groq(retry_messages, max_tokens=_max_tokens_for(template))
                 if _item_count(retry_data) > _item_count(data):
                     data = retry_data
+                    data["template"] = template
             except ServiceError:
                 pass  # keep the original (low-item) result rather than failing the whole request
     except ServiceError as e:
@@ -187,10 +236,11 @@ async def generate(
     except Exception as e:
         return err("Unexpected error during generation", str(e))
 
-    required = ("title", "caption", "hook", "categories")
-    missing = [k for k in required if not data.get(k)]
+    missing = [k for k in template_required(template) if not data.get(k)]
     if missing:
         return err("Groq response missing fields", ", ".join(missing))
+
+    data["caption"] = _sanitize_caption(data.get("caption", ""))
 
     try:
         card_html = build_card_html(data)
@@ -245,6 +295,8 @@ async def generate(
             "topic": topic,
             "custom_instructions": custom_instructions,
             "tone": tone,
+            "template": template,
+            "source_text": source_text,
             "title": data.get("title", ""),
             "assignee": assignee_value or "Unassigned",
             "status": "Draft",
@@ -295,14 +347,20 @@ class RegenPayload(BaseModel):
     topic: str = ""
     custom_instructions: str = ""
     tone: str = "default"
+    template: str = DEFAULT_TEMPLATE
+    source_text: str = ""
 
 
 @app.post("/api/regenerate-caption")
 async def api_regenerate_caption(payload: RegenPayload):
+    template = payload.template if payload.template in TEMPLATES else DEFAULT_TEMPLATE
     try:
-        messages = build_messages(payload.topic, payload.custom_instructions, tone=payload.tone)
-        data = await call_groq(messages)
-        new_caption = (data.get("caption") or "").strip()
+        messages = build_messages(
+            payload.topic, payload.custom_instructions,
+            tone=payload.tone, template=template, source_text=payload.source_text,
+        )
+        data = await call_groq(messages, max_tokens=_max_tokens_for(template))
+        new_caption = _sanitize_caption((data.get("caption") or "").strip())
         if not new_caption:
             return JSONResponse({"ok": False, "error": "Groq returned no caption"}, status_code=502)
         if payload.record_id:
@@ -314,9 +372,14 @@ async def api_regenerate_caption(payload: RegenPayload):
 
 @app.post("/api/regenerate-image")
 async def api_regenerate_image(payload: RegenPayload):
+    template = payload.template if payload.template in TEMPLATES else DEFAULT_TEMPLATE
     try:
-        messages = build_messages(payload.topic, payload.custom_instructions, tone=payload.tone)
-        data = await call_groq(messages)
+        messages = build_messages(
+            payload.topic, payload.custom_instructions,
+            tone=payload.tone, template=template, source_text=payload.source_text,
+        )
+        data = await call_groq(messages, max_tokens=_max_tokens_for(template))
+        data["template"] = template
         card_html = build_card_html(data)
         image_url = await call_hcti(card_html)
         if payload.record_id:
